@@ -1,0 +1,11 @@
+{% set selected_time_unit = time_unit.get_selected() -%}
+{% set date_bucket = selected_time_unit.date_bucket_column -%}
+{% set curr_date = reference_date.get_selected_date() -%}
+{% set length = num_periods.get_selected_value() -%}
+{% set start_date = selected_time_unit.get_start_date(curr_date, length) -%}
+
+SELECT ticker, {{ date_bucket }}, avg(daily_return) as avg_return
+FROM stock_data
+WHERE trading_date >= '{{ start_date }}' AND ticker IN ({{ ticker.get_selected_labels_quoted() }})
+GROUP BY ticker, {{ date_bucket }}
+ORDER BY ticker ASC, {{ date_bucket }} DESC

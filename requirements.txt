@@ -1,0 +1,4 @@
+Jinja2
+sqlalchemy<2
+pandas
+pandasql
