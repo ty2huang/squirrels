@@ -125,11 +125,10 @@ class _SelectionParameter(_Parameter):
             parent_param = parameters.get_parent_parameter(self.name)
             selected_ids = set(parent_param.get_selected_ids_as_list())
             self.options = [x for x in self.all_options if x.parent_id in selected_ids]
-        return self
     
     def verify_selected_id_in_options(self, selected_id):
         if selected_id not in [x.identifier for x in self.options]:
-            raise raiseParameterError(self.name, f'the selected id "{selection}" is not selectable from options')
+            raise raiseParameterError(self.name, f'the selected id "{selected_id}" is not selectable from options')
 
     def to_dict(self):
         output = super().to_dict()
@@ -145,9 +144,8 @@ class SingleSelectParameter(_SelectionParameter):
     def __init__(self, name: str, label: str, options: List[ParameterOption], selected_id: Optional[str] = None, 
                  trigger_refresh: bool = False, parent: Optional[str] = None):
         super().__init__(WidgetType.SingleSelect, name, label, options, trigger_refresh, parent)
-        selected_id_default = options[0].identifier if options else None
-        identifiers = [x.identifier for x in self.options]
-        self.selected_id = selected_id if selected_id in identifiers else selected_id_default
+        self.selected_id = selected_id if selected_id is not None else options[0].identifier
+        self.verify_selected_id_in_options(self.selected_id)
     
     def set_selection(self, selection: str):
         self.selected_id = selection
@@ -165,6 +163,10 @@ class SingleSelectParameter(_SelectionParameter):
     # Overriding for refresh method
     def get_selected_ids_as_list(self) -> List[str]:
         return [self.get_selected_id()]
+    
+    def refresh(self):
+        super().refresh()
+        self.selected_id = self.options[0].identifier
 
     def to_dict(self):
         output = super().to_dict()
@@ -176,12 +178,14 @@ class SingleSelectParameter(_SelectionParameter):
 class MultiSelectParameter(_SelectionParameter):
     selected_ids: List[str]
     include_all: bool
+    order_matters: bool
 
     def __init__(self, name: str, label: str, options: List[ParameterOption], selected_ids: List[str] = [], 
-                 trigger_refresh: bool = False, parent: Optional[str] = None, include_all: bool = True):
+                 trigger_refresh: bool = False, parent: Optional[str] = None, include_all: bool = True, order_matters: bool = False):
         super().__init__(WidgetType.MultiSelect, name, label, options, trigger_refresh, parent)
         self.selected_ids = selected_ids
         self.include_all = include_all
+        self.order_matters = order_matters
 
     def set_selection(self, selection: str):
         self.selected_ids = selection.split(',')
@@ -206,11 +210,16 @@ class MultiSelectParameter(_SelectionParameter):
     
     def get_selected_labels_quoted(self) -> str:
         return ', '.join("'" + x + "'" for x in self.get_selected_labels_as_list())
+    
+    def refresh(self):
+        super().refresh()
+        self.selected_ids = []
 
     def to_dict(self):
         output = super().to_dict()
         output['selected_ids'] = self.selected_ids
         output['include_all'] = self.include_all
+        output['order_matters'] = self.order_matters
         return output
 
 

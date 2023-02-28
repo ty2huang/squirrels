@@ -59,6 +59,7 @@ def main():
 
     start = time.time()
     parser = ArgumentParser(description="Command line utilities from the squirrels python package")
+    parser.add_argument('-v', '--verbose', action='store_true', help='Show all log messages')
     subparsers = parser.add_subparsers(title='commands', dest='command', required=True)
 
     def _add_profile_argument(parser):
@@ -80,7 +81,7 @@ def main():
     test_parser = subparsers.add_parser(TEST_CMD, help='For a given dataset, create or compare expected results of parameters response and rendered sql queries')
     test_parser.add_argument('dataset', type=str, help='Name of dataset (as written in manifest.json) to test, and results are written in an "outputs" folder, or if this is not specified, unit testing on the "tests" folder is done instead')
     test_parser.add_argument('-c', '--cfg', type=str, help='Configuration file for parameter selections. Path is relative to a specific dataset folder')
-    test_parser.add_argument('-d', '--data', type=str, help='Sample lookup data to avoid making a database connection. Path is relative to project folder')
+    test_parser.add_argument('-d', '--data', type=str, help='Sample lookup data to avoid making a database connection. Path is relative to a specific dataset folder')
     test_parser.add_argument('-r', '--runquery', action='store_true', help='Runs all database queries and final view, and produce the results as csv files')
 
     subparsers.add_parser(RUN_CMD, help='Enable all APIs')
@@ -107,7 +108,7 @@ def main():
         raise RuntimeError(f'The squirrels CLI does not support "{args.command}"')
     
     c.timer.add_activity_time('everything', global_start)
-    c.timer.report_times()
+    c.timer.report_times(args.verbose)
 
 
 if __name__ == '__main__':

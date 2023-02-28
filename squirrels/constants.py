@@ -1,5 +1,3 @@
-DEBUG = True
-
 # Manifest file keys
 DB_PROFILE = 'db_profile'
 PROJ_VARS = 'project_variables'
@@ -29,11 +27,7 @@ IMPORT_SQLALCHEMY = 'import sqlalchemy'
 IMPORT_PANDAS = 'import pandas'
 
 # Selection cfg sections
-DATES_SECTION = 'dates'
-NUMBERS_SECTION = 'numbers'
-RANGES_SECTION = 'ranges'
-SINGLE_SELECT_SECTION = 'singleselect'
-MULTI_SELECT_SECTION = 'multiselect'
+PARAMETERS_SECTION = 'parameters'
 HEADERS_SECTION = 'headers'
 
 # Global utilities
@@ -46,8 +40,8 @@ class Timer:
     def add_activity_time(self, activity, start):
         self.times[activity] = self.times.get(activity, 0) + (time.time()-start) * 10**3
     
-    def report_times(self):
-        if DEBUG:
+    def report_times(self, verbose):
+        if verbose:
             for activity, time in self.times.items():
                 print(f'The time of execution of "{activity}" is:', time, "ms")
 

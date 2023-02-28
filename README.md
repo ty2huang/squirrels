@@ -13,6 +13,8 @@ It's also called "squirrels" for the following reasons:
 - Provide `squirrels test [dataset]` CLI to create the parameters output and all the rendered sql files in an `outputs` folder [DONE]
     - Provide a `--cfg selections.cfg` option to test parameter selections as a config file and a `--data sample_lu_data.csv` option to provide an alternative file(s) for dimension table data [DONE]
     - Provide a `--runquery` option that lets the user produce the results by querying database [DONE]
+- Support conditional default value for selection parameters that cascade based on dependent parameters
+- Support templating with header values and project variables
 - Provide a `squirrels load-modules` CLI to git clone all the modules that the squirrels project references
 - Provide a `squirrels run` CLI to activate all REST APIs on localhost with the following resource paths:
     - `/v{framework_version}/{base_path}/{dataset}/parameters` 
