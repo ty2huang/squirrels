@@ -16,7 +16,7 @@ class DbConnection:
         if in_memory:
             self.engine = create_engine('sqlite:///:memory:')
         else:
-            profile_name = ct.parms[c.DB_PROFILE]
+            profile_name = ct.parms[c.DB_PROFILE_KEY]
             profile = pm.Profile(profile_name).get()
             self.engine = create_engine(f'{profile[c.DIALECT]}://{profile[c.USERNAME]}:{profile[c.PASSWORD]}@{profile[c.CONN_URL]}')
 

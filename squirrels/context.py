@@ -18,13 +18,12 @@ def initialize(manifest_path):
     if parms is None:
         with open(manifest_path, 'r') as f:
             content = f.read()
-        proj_vars = json.loads(content).get(c.PROJ_VARS, dict())
+        proj_vars = json.loads(content).get(c.PROJ_VARS_KEY, dict())
         template = j2.Environment().from_string(content)
         rendered = template.render(**proj_vars)
         parms = json.loads(rendered)
         
-        parms[c.DATASETS_KEY] = list_to_dict(c.NAME_KEY, parms[c.DATASETS_KEY])
-        parms[c.HEADERS_KEY] = list_to_dict(c.NAME_KEY, parms[c.HEADERS_KEY])
+        parms[c.DATASETS_KEY] = list_to_dict(c.DATASET_NAME_KEY, parms[c.DATASETS_KEY])
 
 
 try:

@@ -6,4 +6,4 @@ def pytest_sessionstart(session):
     sys.path.append('sample_project')
     context.initialize('sample_project/manifest.json')
     database_path = os.path.abspath('./data/test.db')
-    pm.Profile(context.parms[c.DB_PROFILE]).set('sqlite', f'/{database_path}', '', '')
+    pm.Profile(context.parms[c.DB_PROFILE_KEY]).set('sqlite', f'/{database_path}', '', '')

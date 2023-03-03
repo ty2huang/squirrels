@@ -45,15 +45,17 @@ class OptionsDataSource(DataSource):
     order_by_col: Optional[str]
     is_default_col: Optional[str]
     parent_id_col: Optional[str]
+    is_cond_default_col: Optional[str]
 
     def __init__(self, table_or_query: str, id_col: str, options_col: str, order_by_col: Optional[str] = None, 
-                is_default_col: Optional[str] = None, parent_id_col: Optional[str] = None):
+                is_default_col: Optional[str] = None, parent_id_col: Optional[str] = None, is_cond_default_col: Optional[str] = None):
         super().__init__(table_or_query)
         self.id_col = id_col 
         self.options_col = options_col
         self.order_by_col = id_col if order_by_col is None else order_by_col
         self.is_default_col = is_default_col
         self.parent_id_col = parent_id_col
+        self.is_cond_default_col = is_cond_default_col
 
 
 @dataclass
@@ -82,6 +84,7 @@ class ParameterOption:
     identifier: str
     label: str
     parent_id: Optional[str] = None
+    is_cond_default: bool = False
 
     def to_dict(self):
         return {'id': self.identifier, 'label': self.label}
@@ -115,6 +118,7 @@ class _SelectionParameter(_Parameter):
 
     def __post_init__(self):
         self.all_options = list(self.options)
+        self.selected_parent_ids = set()
 
     def get_selected_ids_as_list(self):
         return []
@@ -123,12 +127,18 @@ class _SelectionParameter(_Parameter):
         super().refresh()
         if self.parent is not None:
             parent_param = parameters.get_parent_parameter(self.name)
-            selected_ids = set(parent_param.get_selected_ids_as_list())
-            self.options = [x for x in self.all_options if x.parent_id in selected_ids]
+            self.selected_parent_ids = set(parent_param.get_selected_ids_as_list())
+            self.options = [x for x in self.all_options if x.parent_id in self.selected_parent_ids]
+
+    def get_cond_default_iterator(self):
+        return (x.identifier for x in self.options if x.is_cond_default)
     
     def verify_selected_id_in_options(self, selected_id):
         if selected_id not in [x.identifier for x in self.options]:
             raise raiseParameterError(self.name, f'the selected id "{selected_id}" is not selectable from options')
+        
+    def enquote(self, value):
+        return "'" + value.replace("'", "''") + "'" 
 
     def to_dict(self):
         output = super().to_dict()
@@ -139,12 +149,14 @@ class _SelectionParameter(_Parameter):
 
 @dataclass
 class SingleSelectParameter(_SelectionParameter):
+    default_id: str
     selected_id: str
 
-    def __init__(self, name: str, label: str, options: List[ParameterOption], selected_id: Optional[str] = None, 
+    def __init__(self, name: str, label: str, options: List[ParameterOption], default_id: Optional[str] = None, 
                  trigger_refresh: bool = False, parent: Optional[str] = None):
         super().__init__(WidgetType.SingleSelect, name, label, options, trigger_refresh, parent)
-        self.selected_id = selected_id if selected_id is not None else options[0].identifier
+        self.default_id = self.get_default_with_nullable_id(default_id)
+        self.selected_id = self.default_id
         self.verify_selected_id_in_options(self.selected_id)
     
     def set_selection(self, selection: str):
@@ -152,21 +164,28 @@ class SingleSelectParameter(_SelectionParameter):
         self.verify_selected_id_in_options(self.selected_id)
 
     def get_selected(self) -> ParameterOption:
-        return next((x for x in self.options if x.identifier == self.selected_id), None)
+        return next(x for x in self.options if x.identifier == self.selected_id)
     
     def get_selected_id(self) -> str:
         return self.get_selected().identifier
     
-    def get_selected_label(self) -> str:
-        return self.get_selected().label
+    def get_selected_label_quoted(self) -> str:
+        return self.enquote(self.get_selected().label)
     
     # Overriding for refresh method
     def get_selected_ids_as_list(self) -> List[str]:
         return [self.get_selected_id()]
     
+    def get_default_with_nullable_id(self, default_id: str) -> str:
+        return default_id if default_id is not None else self.options[0].identifier
+    
     def refresh(self):
         super().refresh()
-        self.selected_id = self.options[0].identifier
+        if self.parent is not None:
+            default_id = next(self.get_cond_default_iterator(), None)
+            self.selected_id = self.get_default_with_nullable_id(default_id)
+        else:
+            self.selected_id = self.default_id
 
     def to_dict(self):
         output = super().to_dict()
@@ -176,14 +195,16 @@ class SingleSelectParameter(_SelectionParameter):
 
 @dataclass
 class MultiSelectParameter(_SelectionParameter):
+    default_ids: List[str]
     selected_ids: List[str]
     include_all: bool
     order_matters: bool
 
-    def __init__(self, name: str, label: str, options: List[ParameterOption], selected_ids: List[str] = [], 
+    def __init__(self, name: str, label: str, options: List[ParameterOption], default_ids: List[str] = [], 
                  trigger_refresh: bool = False, parent: Optional[str] = None, include_all: bool = True, order_matters: bool = False):
         super().__init__(WidgetType.MultiSelect, name, label, options, trigger_refresh, parent)
-        self.selected_ids = selected_ids
+        self.default_ids = default_ids
+        self.selected_ids = default_ids
         self.include_all = include_all
         self.order_matters = order_matters
 
@@ -202,18 +223,21 @@ class MultiSelectParameter(_SelectionParameter):
     def get_selected_ids_as_list(self) -> List[str]:
         return [x.identifier for x in self.get_selected_list()]
     
-    def get_selected_labels_as_list(self) -> List[str]:
-        return [x.label for x in self.get_selected_list()]
+    def get_selected_labels_quoted_as_list(self) -> List[str]:
+        return [self.enquote(x.label) for x in self.get_selected_list()]
     
     def get_selected_ids(self) -> str:
         return ', '.join(self.get_selected_ids_as_list())
     
     def get_selected_labels_quoted(self) -> str:
-        return ', '.join("'" + x + "'" for x in self.get_selected_labels_as_list())
+        return ', '.join(self.get_selected_labels_quoted_as_list())
     
     def refresh(self):
         super().refresh()
-        self.selected_ids = []
+        if self.parent is not None:
+            self.selected_ids = list(self.get_cond_default_iterator())
+        else:
+            self.selected_ids = self.default_ids
 
     def to_dict(self):
         output = super().to_dict()
@@ -353,29 +377,37 @@ class DataSourceParameter(_Parameter):
             id_col = 'id' if from_sample else self.data_source.id_col
             options_col = 'options' if from_sample else self.data_source.options_col
             order_by_col = 'ordering' if from_sample else self.data_source.order_by_col
-            default_col = 'default' if from_sample else self.data_source.is_default_col
+            default_col = 'is_default' if from_sample else self.data_source.is_default_col
             parent_id_col = 'parent_id' if from_sample else self.data_source.parent_id_col
+            cond_default_col = 'is_cond_default' if from_sample else self.data_source.is_cond_default_col
+            
             def get_parent_id(row):
                 if parent_id_col is not None and not pd.isnull(row[parent_id_col]):
                     return str(row[parent_id_col])
                 else:
                     return None
             
-            df.sort_values(order_by_col, inplace=True)
-            options = [ParameterOption(str(row[id_col]), str(row[options_col]), get_parent_id(row)) for _, row in df.iterrows()]
+            def is_cond_default(row):
+                if cond_default_col is not None and not pd.isnull(row[cond_default_col]):
+                    return int(row[cond_default_col]) == 1
+                else:
+                    return False
             
-            selected_ids = []
+            df.sort_values(order_by_col, inplace=True)
+            options = [ParameterOption(str(row[id_col]), str(row[options_col]), get_parent_id(row), is_cond_default(row)) for _, row in df.iterrows()]
+            
+            default_ids = []
             if default_col is not None:
                 df_filtered = df.query(f'{default_col} == 1')
-                selected_ids = [str(x) for x in df_filtered[id_col].values.tolist()]
+                default_ids = [str(x) for x in df_filtered[id_col].values.tolist()]
             
             if self.widget_type == WidgetType.SingleSelect:
-                selected_id = selected_id[0] if len(selected_ids) > 0 else None
-                new_param = SingleSelectParameter(self.name, self.label, options, selected_id, self.trigger_refresh, self.parent)
+                default_id = default_ids[0] if len(default_ids) > 0 else None
+                new_param = SingleSelectParameter(self.name, self.label, options, default_id, self.trigger_refresh, self.parent)
             else:
-                new_param = MultiSelectParameter(self.name, self.label, options, selected_ids, self.trigger_refresh, self.parent)
+                new_param = MultiSelectParameter(self.name, self.label, options, default_ids, self.trigger_refresh, self.parent)
         elif self.widget_type in [WidgetType.DateField, WidgetType.NumberField, WidgetType.RangeField]:
-            raiseParameterError(self.name, f'the widget type "{self.widget_type}" is not supported yet')
+            raiseParameterError(self.name, f'the widget type "{self.widget_type}" is not supported yet', NotImplementedError)
         else:
             raiseParameterError(self.name, f'no such widget type "{self.widget_type}"') 
         

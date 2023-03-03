@@ -24,7 +24,7 @@ def get_file_path(relative_folder: str, filename: str):
     filepath = join_paths(relative_folder, filename) if filename is not None else None
     if filepath is not None and not os.path.exists(filepath):
         raise FileNotFoundError(f'The selection cfg file "{filename}" could not be found relative to the "{relative_folder}" folder')
-    return str(filepath)
+    return str(filepath) if filepath is not None else None
 
 
 class Renderer:
@@ -59,7 +59,8 @@ class Renderer:
         bigdata_sql = dataset_parms[c.DATABASE_VIEWS_KEY]
         
         output = {}
-        for view_name, view_file in bigdata_sql.items():
+        for element in bigdata_sql:
+            view_name, view_file = element[c.DB_VIEW_NAME_KEY], element[c.DB_VIEW_FILE_KEY]
             input_path = get_file_path(self.input_folder, view_file)
             output[view_name] = self.render_view(input_path)
         return output
@@ -156,6 +157,9 @@ class Renderer:
             
             final_csv_path = join_paths(output_folder, c.FINAL_VIEW_NAME+'.csv')
             final_df.to_csv(final_csv_path, index=False)
+
+            final_json_path = join_paths(output_folder, c.FINAL_VIEW_NAME+'.json')
+            final_df.to_json(final_json_path, orient='table', index=False, indent=4)
             c.timer.add_activity_time('query and write results', start)
 
         # Print status

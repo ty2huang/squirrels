@@ -16,7 +16,7 @@ setup(
     long_description_content_type="text/markdown",
     author='Tim Huang',
     license='MIT',
-    install_requires=['pandasql', 'pandas', 'sqlalchemy<2', 'Jinja2'],
+    install_requires=['GitPython', 'pandasql', 'pandas', 'sqlalchemy<2', 'Jinja2'],
     setup_requires=['pytest-runner==6.0.0', 'setuptools_scm'],
     version='0.1',
     use_scm_version=False,

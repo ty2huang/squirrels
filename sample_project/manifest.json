@@ -9,14 +9,8 @@
     "datasets": [
         {
             "name": "stock_price_history",
-            "database_views": {"ticker_history": "ticker_history.sql.j2"},
+            "database_views": [{"name": "ticker_history", "file": "ticker_history.sql.j2"}],
             "final_view": "final_view.sql.j2"
-        }
-    ],
-    "headers": [
-        {
-            "name": "minor_version",
-            "default": "{{minor_version}}"
         }
     ]
 }

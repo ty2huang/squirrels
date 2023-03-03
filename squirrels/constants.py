@@ -1,10 +1,22 @@
+# Squirrels CLI commands
+GET_PROFILES_CMD = 'get-all-profiles'
+SET_PROFILE_CMD = 'set-profile'
+DELETE_PROFILE_CMD = 'delete-profile'
+INIT_CMD = 'init'
+LOAD_MODULES_CMD = 'load-modules'
+TEST_CMD = 'test'
+RUN_CMD = 'run'
+
 # Manifest file keys
-DB_PROFILE = 'db_profile'
-PROJ_VARS = 'project_variables'
-NAME_KEY = 'name'
+DB_PROFILE_KEY = 'db_profile'
+PROJ_VARS_KEY = 'project_variables'
+MODULES_KEY = 'modules'
+DATASET_NAME_KEY = 'name'
 DATASETS_KEY = 'datasets'
 HEADERS_KEY = 'headers'
 DATABASE_VIEWS_KEY = 'database_views'
+DB_VIEW_NAME_KEY = 'name'
+DB_VIEW_FILE_KEY = 'file'
 FINAL_VIEW_KEY = 'final_view'
 
 # Database profile keys
@@ -16,6 +28,7 @@ PASSWORD = 'password'
 # Folder/File names
 MANIFEST_FILE = 'manifest.json'
 OUTPUTS_FOLDER = 'outputs'
+MODULES_FOLDER = 'modules'
 DATASETS_FOLDER = 'datasets'
 PARAMETERS_MODULE = 'parameters'
 PARAMETERS_OUTPUT = 'parameters.json'
@@ -37,8 +50,8 @@ class Timer:
     def __init__(self):
         self.times = {}
     
-    def add_activity_time(self, activity, start):
-        self.times[activity] = self.times.get(activity, 0) + (time.time()-start) * 10**3
+    def add_activity_time(self, activity, my_start):
+        self.times[activity] = self.times.get(activity, 0) + (time.time()-my_start) * 10**3
     
     def report_times(self, verbose):
         if verbose:

@@ -1,10 +1,10 @@
 from typing import Callable
-from squirrels import parameter_configs as pc
 from functions import *
+import squirrels as sq
 
 
 # Define options for Date Range parameter
-class TimeUnitParameterOption(pc.ParameterOption):
+class TimeUnitParameterOption(sq.ParameterOption):
     def __init__(self, identifier: str, label: str, get_start_date: Callable[[str, str], str], 
                  date_bucket_column: str, max_num_periods: int, default_num_periods: int):
         super().__init__(identifier, label)
@@ -23,27 +23,45 @@ time_unit_options = [
 
 
 # Define number of periods
-class NumPeriodsParameter(pc.NumberParameter):
+class NumPeriodsParameter(sq.NumberParameter):
     def __init__(self, name: str, label: str, time_unit_name: str):
         super().__init__(name, label, 1, 1, 1, 1) # most parameters taken care of in refresh method
         self.parent = time_unit_name
     
     def refresh(self):
         super().refresh()
-        time_unit = pc.parameters.get_parent_parameter(self.name)
-        self.max_value = time_unit.get_selected().max_num_periods
-        self.selected_value = time_unit.get_selected().default_num_periods
+        time_unit: sq.SingleSelectParameter = sq.parameters.get_parent_parameter(self.name)
+        selected_time_unit: TimeUnitParameterOption = time_unit.get_selected()
+        self.max_value = selected_time_unit.max_num_periods
+        self.selected_value = selected_time_unit.default_num_periods
 
 
 # Define data source for Ticker parameter
-ticker_data_source = pc.OptionsDataSource('lu_tickers', 'ticker_id', 'ticker', 'ticker_order')
+ticker_data_source = sq.OptionsDataSource('lu_tickers', 'ticker_id', 'ticker', 'ticker_order')
+
+
+# Define options for time_of_year
+time_of_year_options = [
+    sq.ParameterOption('0', 'No Options', '0'),
+    sq.ParameterOption('1', 'No Options', '1'),
+    sq.ParameterOption('2', 'January', '2'),
+    sq.ParameterOption('3', 'February', '2'),
+    sq.ParameterOption('4', 'March', '2', True),
+    sq.ParameterOption('5', 'April', '2'),
+    sq.ParameterOption('14', 'Q1', '3'),
+    sq.ParameterOption('15', 'Q2', '3'),
+    sq.ParameterOption('16', 'Q3', '3', True),
+    sq.ParameterOption('17', 'Q4', '3'),
+    sq.ParameterOption('18', 'No Options', '4')
+]
 
 
 # Define parameters
-pc.parameters.add([
-    pc.DateParameter('reference_date', 'Reference Date', get_today()),
-    pc.SingleSelectParameter('time_unit', 'Time Unit', time_unit_options, trigger_refresh=True),
+sq.parameters.add([
+    sq.DateParameter('reference_date', 'Reference Date', get_today()),
+    sq.SingleSelectParameter('time_unit', 'Time Unit', time_unit_options, trigger_refresh=True),
     NumPeriodsParameter('num_periods', 'Number of Time Units', 'time_unit'),
-    pc.DataSourceParameter(pc.WidgetType.MultiSelect, 'ticker', 'Ticker', ticker_data_source)
+    sq.MultiSelectParameter('time_of_year', 'Time of Year', time_of_year_options, parent='time_unit'),
+    sq.DataSourceParameter(sq.WidgetType.MultiSelect, 'ticker', 'Ticker', ticker_data_source)
 ])
 
