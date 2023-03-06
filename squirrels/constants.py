@@ -11,13 +11,15 @@ RUN_CMD = 'run'
 DB_PROFILE_KEY = 'db_profile'
 PROJ_VARS_KEY = 'project_variables'
 MODULES_KEY = 'modules'
-DATASET_NAME_KEY = 'name'
+DATASET_LABEL_KEY = 'label'
 DATASETS_KEY = 'datasets'
 HEADERS_KEY = 'headers'
 DATABASE_VIEWS_KEY = 'database_views'
 DB_VIEW_NAME_KEY = 'name'
 DB_VIEW_FILE_KEY = 'file'
 FINAL_VIEW_KEY = 'final_view'
+BASE_PATH_KEY = 'base_path'
+SETTINGS_KEY = 'settings'
 
 # Database profile keys
 DIALECT = 'dialect'
@@ -26,13 +28,17 @@ USERNAME = 'username'
 PASSWORD = 'password'
 
 # Folder/File names
-MANIFEST_FILE = 'manifest.json'
+MANIFEST_FILE = 'manifest.yaml'
 OUTPUTS_FOLDER = 'outputs'
 MODULES_FOLDER = 'modules'
 DATASETS_FOLDER = 'datasets'
 PARAMETERS_MODULE = 'parameters'
 PARAMETERS_OUTPUT = 'parameters.json'
 FINAL_VIEW_NAME = 'final_view'
+
+# Dataset setting names
+PARAMETERS_CACHESIZE_SETTING = 'parameters.cachesize'
+RESULTS_CACHESIZE_SETTING = 'results.cachesize'
 
 # Activities to time
 IMPORT_JINJA = 'import jinja'

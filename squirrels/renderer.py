@@ -1,10 +1,10 @@
 import os, json, time
 import concurrent.futures
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List, Union, Any
 from importlib.machinery import SourceFileLoader
 from configparser import ConfigParser
 from pathlib import Path
-from squirrels import constants as c, parameter_configs, context as ct
+from squirrels import constants as c, parameter_configs, context
 from squirrels.db_conn import DbConnection
 
 start = time.time()
@@ -23,22 +23,26 @@ def join_paths(path1: str, path2: str):
 def get_file_path(relative_folder: str, filename: str):
     filepath = join_paths(relative_folder, filename) if filename is not None else None
     if filepath is not None and not os.path.exists(filepath):
-        raise FileNotFoundError(f'The selection cfg file "{filename}" could not be found relative to the "{relative_folder}" folder')
+        raise FileNotFoundError(f'The file "{filename}" could not be found relative to the "{relative_folder}" folder')
     return str(filepath) if filepath is not None else None
 
 
 class Renderer:
     def __init__(self, dataset, selection_cfg: str = None, lu_data: str = None) -> None:
+        context.initialize(c.MANIFEST_FILE)
         self.dataset = dataset
         self.input_folder = join_paths(c.DATASETS_FOLDER, dataset)
         self.selection_cfg = get_file_path(self.input_folder, selection_cfg)
         self.lu_data = get_file_path(self.input_folder, lu_data)
+        self.parameters = self.load_parameters()
 
         
-    def load_parameters(self) -> parameter_configs._ParameterSet:
+    def load_parameters(self) -> parameter_configs.ParameterSet:
         module_path = get_file_path(self.input_folder, c.PARAMETERS_MODULE+'.py')
         SourceFileLoader(c.PARAMETERS_MODULE, module_path).load_module()
-        return parameter_configs.parameters
+        parameters = parameter_configs.ParameterSet()
+        parameters.convert_datasource_params(self.lu_data)
+        return parameters
     
     
     def run_final_view_in_python(self, py_file: str, database_views: Dict[str, DataFrame]) -> DataFrame:
@@ -48,14 +52,14 @@ class Renderer:
 
     
     def render_view(self, view_file: str) -> str:
-        parms_dict = parameter_configs.parameters.parameters_dict
+        parms_dict = self.parameters.parameters_dict
         env = j2.Environment(loader=j2.FileSystemLoader('.'))
         template = env.get_template(view_file.replace('\\', '/'))
         return template.render(parms_dict)
     
 
     def get_rendered_sql_by_view(self) -> Dict[str, str]:
-        dataset_parms = ct.parms[c.DATASETS_KEY][self.dataset]
+        dataset_parms = context.parms[c.DATASETS_KEY][self.dataset]
         bigdata_sql = dataset_parms[c.DATABASE_VIEWS_KEY]
         
         output = {}
@@ -85,16 +89,19 @@ class Renderer:
         return df_by_view_name, final_df
     
 
+    def get_final_view_sql_str(self, final_view_name: str, database_view_names: Union[List[str], Dict[str, Any]]) -> str:
+        final_view_sql_str = None
+        if final_view_name not in database_view_names and not final_view_name.endswith('.py'):
+            final_view_path = get_file_path(self.input_folder, final_view_name)
+            final_view_sql_str = self.render_view(final_view_path)
+        return final_view_sql_str
+    
+
     def write_outputs(self, runquery: bool):
-        # Dynamically import the parameters.py configuration file
+        # Dynamically import the parameters.py configuration file and convert all datasources parameters
         start = time.time()
         parms = self.load_parameters()
         c.timer.add_activity_time('dynamic import', start)
-
-        # Convert all datasources parameters to widget parameters
-        start = time.time()
-        parms.convert_datasource_params(self.lu_data)
-        c.timer.add_activity_time('convert datasources', start)
 
         # Apply selections from selections.cfg
         start = time.time()
@@ -104,7 +111,7 @@ class Renderer:
             if config.has_section(c.PARAMETERS_SECTION):
                 config_section = config[c.PARAMETERS_SECTION]
                 for name, parameter in parms.parameters_dict.items():
-                    parameter.refresh()
+                    parameter.refresh(parms)
                     if name in config_section:
                         parameter.set_selection(config_section[name])
         c.timer.add_activity_time('apply selections', start)
@@ -127,7 +134,7 @@ class Renderer:
         
         # Render and write the sql queries
         start = time.time()
-        dataset_parms = ct.parms[c.DATASETS_KEY][self.dataset]
+        dataset_parms = context.parms[c.DATASETS_KEY][self.dataset]
         
         def write_sql_file(view_name, sql_str):
             sql_file = join_paths(output_folder, view_name+'.sql')
@@ -139,10 +146,8 @@ class Renderer:
             write_sql_file(view_name, final_view_sql_str)
 
         final_view_name = dataset_parms[c.FINAL_VIEW_KEY]
-        final_view_sql_str = None
-        if final_view_name not in sql_by_view_name and not final_view_name.endswith('.py'):
-            final_view_path = get_file_path(self.input_folder, final_view_name)
-            final_view_sql_str = self.render_view(final_view_path)
+        final_view_sql_str = self.get_final_view_sql_str(final_view_name, sql_by_view_name)
+        if final_view_sql_str is not None:
             write_sql_file(c.FINAL_VIEW_NAME, final_view_sql_str)
         c.timer.add_activity_time('write sql files', start)
 

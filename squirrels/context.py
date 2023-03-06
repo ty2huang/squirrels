@@ -1,11 +1,11 @@
-import time, json
+import time, yaml
+from typing import Dict, Any
 from squirrels import constants as c
 
 start = time.time()
 import jinja2 as j2
 c.timer.add_activity_time(c.IMPORT_JINJA, start)
 
-start = time.time()
 parms = None
 
 
@@ -18,17 +18,15 @@ def initialize(manifest_path):
     if parms is None:
         with open(manifest_path, 'r') as f:
             content = f.read()
-        proj_vars = json.loads(content).get(c.PROJ_VARS_KEY, dict())
+        proj_vars = yaml.safe_load(content).get(c.PROJ_VARS_KEY, dict())
         template = j2.Environment().from_string(content)
         rendered = template.render(**proj_vars)
-        parms = json.loads(rendered)
+        parms = yaml.safe_load(rendered)
         
-        parms[c.DATASETS_KEY] = list_to_dict(c.DATASET_NAME_KEY, parms[c.DATASETS_KEY])
 
+def get_dataset_parms(dataset: str) -> Dict[str, Any]:
+    return parms[c.DATASETS_KEY][dataset]
 
-try:
-    initialize(c.MANIFEST_FILE)
-except FileNotFoundError:
-    pass
-
-c.timer.add_activity_time('initialize context', start)
+def get_setting(key: str, default: Any):
+    settings: Dict[str, str] = parms.get(c.SETTINGS_KEY, {})
+    return settings.get(key, default)

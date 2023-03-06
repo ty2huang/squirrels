@@ -2,8 +2,8 @@ import sys, time
 global_start = time.time()
 sys.path.append('.')
 
-from typing import List
-from squirrels import constants as c, profile_manager as pm, module_loader as ml
+from squirrels import constants as c, profile_manager as pm
+from squirrels import module_loader as ml, api_server
 from squirrels.renderer import Renderer
 from argparse import ArgumentParser
 
@@ -35,10 +35,6 @@ def delete_profile(args):
         print(f"Profile '{args.name}' was deleted")
     else:
         print(f"Profile '{args.name}' does not exist")
-
-
-def run_project():
-    raise NotImplementedError()
 
 
 def init_project():
@@ -73,11 +69,14 @@ def main():
     test_parser.add_argument('-d', '--data', type=str, help='Sample lookup data to avoid making a database connection. Path is relative to a specific dataset folder')
     test_parser.add_argument('-r', '--runquery', action='store_true', help='Runs all database queries and final view, and produce the results as csv files')
 
-    subparsers.add_parser(c.RUN_CMD, help='Enable all APIs')
+    run_parser = subparsers.add_parser(c.RUN_CMD, help='Enable all APIs')
+    run_parser.add_argument('--no-cache', action='store_true', help='Do not cache any api results')
+    run_parser.add_argument('--host', type=str, default='127.0.0.1')
+    run_parser.add_argument('--port', type=int, default=8000)
     c.timer.add_activity_time('creating argparser', start)
 
     start = time.time()
-    args = parser.parse_args()
+    args, unknown_args = parser.parse_known_args()
     if args.command == c.GET_PROFILES_CMD:
         get_profiles()
     elif args.command == c.SET_PROFILE_CMD:
@@ -88,7 +87,7 @@ def main():
         Renderer(args.dataset, args.cfg, args.data).write_outputs(args.runquery)
         c.timer.add_activity_time('rendering output', start)
     elif args.command == c.RUN_CMD:
-        run_project()
+        api_server.run(args.no_cache , args)
     elif args.command == c.LOAD_MODULES_CMD:
         ml.load_modules()
     elif args.command == c.INIT_CMD:

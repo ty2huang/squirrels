@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Table with Parameters</title>
+    <style>
+      table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      th, td {
+        text-align: left;
+        padding: 8px;
+      }
+      th {
+        background-color: #4285f4;
+        color: white;
+      }
+      tr:nth-child(even) {
+        background-color: #f2f2f2;
+      }
+      input[type=number], select {
+        width: 100%;
+        padding: 12px 20px;
+        margin: 8px 0;
+        box-sizing: border-box;
+        border: 2px solid #ccc;
+        border-radius: 4px;
+      }
+      input[type=submit] {
+        background-color: #4285f4;
+        color: white;
+        padding: 12px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      input[type=submit]:hover {
+        background-color: #3076c5;
+      }
+      .parameter-container {
+        width: 250px;
+        margin-right: 50px;
+      }
+    </style>
+    <script>
+		$(document).ready(function() {
+			// Make an API call to get the catalog data
+			$.getJSON("/squirrels0", function(catalog) {
+				// Loop through the resource paths to populate the dropdown
+				for (var i = 0; i < catalog.resource_paths.length; i++) {
+					var dataset = catalog.resource_paths[i].dataset;
+					var label = catalog.resource_paths[i].label;
+					$("#dataset-select").append("<option value='" + dataset + "'>" + label + "</option>");
+				}
+			});
+		});
+	</script>
+  </head>
+  <body>
+    <div class="parameter-container">
+      <h2>Parameters</h2>
+      <form>
+        <label for="dataset-select">Select a Dataset:</label>
+	    <select id="dataset-select"></select>
+        <label for="param1">Parameter 1:</label>
+        <input type="number" id="param1" name="param1" value="0">
+        <label for="param2">Parameter 2:</label>
+        <select id="param2" name="param2">
+          <option value="option1">Option 1</option>
+          <option value="option2">Option 2</option>
+          <option value="option3">Option 3</option>
+        </select>
+        <input type="submit" value="Apply">
+      </form>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Column 1</th>
+          <th>Column 2</th>
+          <th>Column 3</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Row 1, Column 1</td>
+          <td>Row 1, Column 2</td>
+          <td>Row 1, Column 3</td>
+        </tr>
+        <tr>
+          <td>Row 2, Column 1</td>
+          <td>Row 2, Column 2</td>
+          <td>Row 2, Column 3</td>
+        </tr>
+        <tr>
+          <td>Row 3, Column 1</td>
+          <td>Row 3, Column 2</td>
+          <td>Row 3, Column 3</td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>

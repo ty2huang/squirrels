@@ -1,4 +1,4 @@
-sandbox.py
+*sandbox.*
 
 # Pipenv files
 Pipfile
@@ -64,7 +64,7 @@ __pypackages__/
 
 
 ### VisualStudioCode ###
-.vscode/*
+.vscode
 
 # Local History for Visual Studio Code
 .history/

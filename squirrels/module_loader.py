@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List
 from squirrels import context, constants as c
 import git, shutil, os, stat
 
@@ -23,6 +23,8 @@ def parse_module_repo_strings(repo_strings):
 
 
 def load_modules():
+    context.initialize(c.MANIFEST_FILE)
+    
     repo_strings: List[str] = context.parms[c.MODULES_KEY]
 
     # Recreate the modules directory if it exists

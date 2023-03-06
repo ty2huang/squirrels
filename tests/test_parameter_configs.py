@@ -5,6 +5,8 @@ importlib.import_module("datasets.stock_price_history.parameters")
 
 
 def test_parameters_to_dict():
+    parameters = ParameterSet()
+
     reference_date_dict = {
         'widget_type': 'DateField',
         'name': 'reference_date',
@@ -77,7 +79,9 @@ def test_parameters_to_dict():
 
 
 def test_convert_datasource_params():
+    parameters = ParameterSet()
     parameters.convert_datasource_params()
+
     ticker_dict = {
         'widget_type': 'MultiSelect',
         'name': 'ticker',
@@ -97,10 +101,11 @@ def test_convert_datasource_params():
 
 
 def test_refresh():
+    parameters = ParameterSet()
     parent_parm: SingleSelectParameter = parameters.get_parameter('time_unit')
     parent_parm.set_selection('3')
     time_of_year_parm: MultiSelectParameter = parameters.get_parameter('time_of_year')
-    time_of_year_parm.refresh()
+    time_of_year_parm.refresh(parameters)
     expected_time_of_year_options =  [
         ParameterOption('14', 'Q1'),
         ParameterOption('15', 'Q2'),

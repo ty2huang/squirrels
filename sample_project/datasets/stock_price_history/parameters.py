@@ -28,9 +28,9 @@ class NumPeriodsParameter(sq.NumberParameter):
         super().__init__(name, label, 1, 1, 1, 1) # most parameters taken care of in refresh method
         self.parent = time_unit_name
     
-    def refresh(self):
-        super().refresh()
-        time_unit: sq.SingleSelectParameter = sq.parameters.get_parent_parameter(self.name)
+    def refresh(self, all_parameters: sq.ParameterSet):
+        super().refresh(all_parameters)
+        time_unit: sq.SingleSelectParameter = all_parameters.get_parent_parameter(self.name)
         selected_time_unit: TimeUnitParameterOption = time_unit.get_selected()
         self.max_value = selected_time_unit.max_num_periods
         self.selected_value = selected_time_unit.default_num_periods
@@ -57,7 +57,7 @@ time_of_year_options = [
 
 
 # Define parameters
-sq.parameters.add([
+sq.add_parameters([
     sq.DateParameter('reference_date', 'Reference Date', get_today()),
     sq.SingleSelectParameter('time_unit', 'Time Unit', time_unit_options, trigger_refresh=True),
     NumPeriodsParameter('num_periods', 'Number of Time Units', 'time_unit'),

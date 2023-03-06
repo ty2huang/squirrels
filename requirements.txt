@@ -1,5 +1,8 @@
-Jinja2
 sqlalchemy<2
 pandas
 pandasql
 GitPython
+Jinja2
+uvicorn
+fastapi
+cachetools

@@ -1,10 +1,11 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from collections import OrderedDict
-from typing import List, Dict, OrderedDict, Optional, Union, Type
+from typing import List, Dict, Optional, Union, Type
 from datetime import datetime
 from enum import Enum
 from decimal import Decimal
+from copy import deepcopy
 from squirrels import constants as c
 from squirrels.db_conn import DbConnection
 import time
@@ -95,12 +96,17 @@ class _Parameter:
     widget_type: WidgetType
     name: str
     label: str
+    is_hidden: bool
 
-    def refresh(self):
+    def refresh(self, parameters: ParameterSet):
         pass # intentional, empty definition unless overwritten
 
     def set_selection(self, _: str):
         raise RuntimeError('Must override "set_selection" method in all classes that override the "_Parameter" class')
+    
+    def copy(self):
+        # TODO for all parameter classes
+        return self
 
     def to_dict(self):
         return {
@@ -123,8 +129,8 @@ class _SelectionParameter(_Parameter):
     def get_selected_ids_as_list(self):
         return []
 
-    def refresh(self):
-        super().refresh()
+    def refresh(self, parameters: ParameterSet):
+        super().refresh(parameters)
         if self.parent is not None:
             parent_param = parameters.get_parent_parameter(self.name)
             self.selected_parent_ids = set(parent_param.get_selected_ids_as_list())
@@ -152,9 +158,9 @@ class SingleSelectParameter(_SelectionParameter):
     default_id: str
     selected_id: str
 
-    def __init__(self, name: str, label: str, options: List[ParameterOption], default_id: Optional[str] = None, 
-                 trigger_refresh: bool = False, parent: Optional[str] = None):
-        super().__init__(WidgetType.SingleSelect, name, label, options, trigger_refresh, parent)
+    def __init__(self, name: str, label: str, options: List[ParameterOption], *, default_id: Optional[str] = None, 
+                 is_hidden: bool = False, trigger_refresh: bool = False, parent: Optional[str] = None):
+        super().__init__(WidgetType.SingleSelect, name, label, is_hidden, options, trigger_refresh, parent)
         self.default_id = self.get_default_with_nullable_id(default_id)
         self.selected_id = self.default_id
         self.verify_selected_id_in_options(self.selected_id)
@@ -179,8 +185,8 @@ class SingleSelectParameter(_SelectionParameter):
     def get_default_with_nullable_id(self, default_id: str) -> str:
         return default_id if default_id is not None else self.options[0].identifier
     
-    def refresh(self):
-        super().refresh()
+    def refresh(self, parameters: ParameterSet):
+        super().refresh(parameters)
         if self.parent is not None:
             default_id = next(self.get_cond_default_iterator(), None)
             self.selected_id = self.get_default_with_nullable_id(default_id)
@@ -200,9 +206,9 @@ class MultiSelectParameter(_SelectionParameter):
     include_all: bool
     order_matters: bool
 
-    def __init__(self, name: str, label: str, options: List[ParameterOption], default_ids: List[str] = [], 
+    def __init__(self, name: str, label: str, options: List[ParameterOption], *, default_ids: List[str] = [], is_hidden = False,
                  trigger_refresh: bool = False, parent: Optional[str] = None, include_all: bool = True, order_matters: bool = False):
-        super().__init__(WidgetType.MultiSelect, name, label, options, trigger_refresh, parent)
+        super().__init__(WidgetType.MultiSelect, name, label, is_hidden, options, trigger_refresh, parent)
         self.default_ids = default_ids
         self.selected_ids = default_ids
         self.include_all = include_all
@@ -232,8 +238,8 @@ class MultiSelectParameter(_SelectionParameter):
     def get_selected_labels_quoted(self) -> str:
         return ', '.join(self.get_selected_labels_quoted_as_list())
     
-    def refresh(self):
-        super().refresh()
+    def refresh(self, parameters: ParameterSet):
+        super().refresh(parameters)
         if self.parent is not None:
             self.selected_ids = list(self.get_cond_default_iterator())
         else:
@@ -252,8 +258,8 @@ class DateParameter(_Parameter):
     selected_date: datetime
     format: str
 
-    def __init__(self, name: str, label: str, selected_date: str, format: str = '%Y-%m-%d'):
-        super().__init__(WidgetType.DateField, name, label)
+    def __init__(self, name: str, label: str, selected_date: str, *, is_hidden: bool = False, format: str = '%Y-%m-%d'):
+        super().__init__(WidgetType.DateField, name, label, is_hidden)
         self.format = format
         try:
             self.selected_date = datetime.strptime(selected_date, format)
@@ -309,8 +315,8 @@ class NumberParameter(_NumericParameter):
     selected_value: Decimal
 
     def __init__(self, name: str, label: str, min_value: Union[Decimal, int, str], max_value: Union[Decimal, int, str], 
-                 increment: Union[Decimal, int, str], selected_value: Union[Decimal, int, str]):
-        super().__init__(WidgetType.NumberField, name, label, min_value, max_value, increment)
+                 increment: Union[Decimal, int, str], selected_value: Union[Decimal, int, str], *, is_hidden: bool = False):
+        super().__init__(WidgetType.NumberField, name, label, is_hidden, min_value, max_value, increment)
         self.selected_value = Decimal(selected_value)
         self.validate_value(selected_value)
     
@@ -332,8 +338,8 @@ class RangeParameter(_NumericParameter):
     selected_upper_value: Decimal
 
     def __init__(self, name: str, label: str, min_value: Union[Decimal, int, str], max_value: Union[Decimal, int, str], increment: Union[Decimal, int, str], 
-                 selected_lower_value: Union[Decimal, int, str], selected_upper_value: Union[Decimal, int, str]):
-        super().__init__(WidgetType.RangeField, name, label, min_value, max_value, increment)
+                 selected_lower_value: Union[Decimal, int, str], selected_upper_value: Union[Decimal, int, str], *, is_hidden: bool = False):
+        super().__init__(WidgetType.RangeField, name, label, is_hidden, min_value, max_value, increment)
         self.selected_lower_value = Decimal(selected_lower_value)
         self.selected_upper_value = Decimal(selected_upper_value)
         self.validate_value(selected_lower_value)
@@ -360,8 +366,15 @@ class RangeParameter(_NumericParameter):
 @dataclass
 class DataSourceParameter(_Parameter):
     data_source: OptionsDataSource
-    trigger_refresh: bool = False
-    parent: Optional[str] = None
+    trigger_refresh: bool
+    parent: Optional[str]
+
+    def __init__(self, widget_type: str, name: str, label: str, data_source: OptionsDataSource, *, 
+                 is_hidden: bool = False, trigger_refresh: bool = False, parent: Optional[str] = None):
+        super().__init__(widget_type, name, label, is_hidden)
+        self.data_source = data_source
+        self.trigger_refresh = trigger_refresh
+        self.parent = parent
     
     def get_data_source(self) -> OptionsDataSource:
         return self.data_source
@@ -403,9 +416,11 @@ class DataSourceParameter(_Parameter):
             
             if self.widget_type == WidgetType.SingleSelect:
                 default_id = default_ids[0] if len(default_ids) > 0 else None
-                new_param = SingleSelectParameter(self.name, self.label, options, default_id, self.trigger_refresh, self.parent)
+                new_param = SingleSelectParameter(self.name, self.label, options, default_id=default_id, is_hidden=self.is_hidden, 
+                                                  trigger_refresh=self.trigger_refresh, parent=self.parent)
             else:
-                new_param = MultiSelectParameter(self.name, self.label, options, default_ids, self.trigger_refresh, self.parent)
+                new_param = MultiSelectParameter(self.name, self.label, options, default_ids=default_ids, is_hidden=self.is_hidden, 
+                                                 trigger_refresh=self.trigger_refresh, parent=self.parent)
         elif self.widget_type in [WidgetType.DateField, WidgetType.NumberField, WidgetType.RangeField]:
             raiseParameterError(self.name, f'the widget type "{self.widget_type}" is not supported yet', NotImplementedError)
         else:
@@ -419,25 +434,31 @@ class DataSourceParameter(_Parameter):
         return output
 
 
-class _ParameterSet:
+# Once this is populated by the parameters.py configuration file, it should never change
+_initial_parameters: List[_Parameter] = []
+
+def add_parameters(parameters: List[_Parameter]):
+    for parameter in parameters:
+        _initial_parameters.append(parameter)
+
+class ParameterSet:
     def __init__(self):
         self.parameters_dict: OrderedDict[str, _Parameter] = OrderedDict()
         self.data_source_params: OrderedDict[str, DataSourceParameter] = OrderedDict()
-
-    def add(self, parameters: List[_Parameter]):
-        for param in parameters:
-            self.parameters_dict[param.name] = param
+        for param in _initial_parameters:
+            param_copy = deepcopy(param)
+            self.parameters_dict[param.name] = param_copy
             if isinstance(param, DataSourceParameter):
-                self.data_source_params[param.name] = param
-            param.refresh()
+                self.data_source_params[param.name] = param_copy
+            param_copy.refresh(self)
 
-    def get_parameter(self, param_name):
+    def get_parameter(self, param_name: str):
         if param_name in self.parameters_dict:
             return self.parameters_dict[param_name]
         else:
             raise KeyError(f'No such parameter exists called "{param_name}"')
     
-    def get_parent_parameter(self, param_name) -> _SelectionParameter:
+    def get_parent_parameter(self, param_name: str) -> _SelectionParameter:
         param = self.get_parameter(param_name)
         if hasattr(param, 'parent') and param.parent is not None:
             parent_param_name = param.parent
@@ -456,12 +477,9 @@ class _ParameterSet:
             df = df_all.query(f'parameter == "{key}"') if df_all is not None else None
             new_param = ds_param.convert(df)
             self.parameters_dict[key] = new_param
-            new_param.refresh()
+            new_param.refresh(self)
         self.data_source_params.clear()
     
     def to_dict(self):
-        output = {'parameters': [x.to_dict() for x in self.parameters_dict.values()]}
+        output = {'parameters': [x.to_dict() for x in self.parameters_dict.values() if not x.is_hidden]}
         return output
-
-
-parameters = _ParameterSet()
