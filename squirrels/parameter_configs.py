@@ -103,10 +103,6 @@ class _Parameter:
 
     def set_selection(self, _: str):
         raise RuntimeError('Must override "set_selection" method in all classes that override the "_Parameter" class')
-    
-    def copy(self):
-        # TODO for all parameter classes
-        return self
 
     def to_dict(self):
         return {
@@ -139,8 +135,11 @@ class _SelectionParameter(_Parameter):
     def get_cond_default_iterator(self):
         return (x.identifier for x in self.options if x.is_cond_default)
     
+    def is_selected_id_in_options(self, selected_id):
+        return selected_id in [x.identifier for x in self.options]
+    
     def verify_selected_id_in_options(self, selected_id):
-        if selected_id not in [x.identifier for x in self.options]:
+        if not self.is_selected_id_in_options(selected_id):
             raise raiseParameterError(self.name, f'the selected id "{selected_id}" is not selectable from options')
         
     def enquote(self, value):
@@ -166,8 +165,7 @@ class SingleSelectParameter(_SelectionParameter):
         self.verify_selected_id_in_options(self.selected_id)
     
     def set_selection(self, selection: str):
-        self.selected_id = selection
-        self.verify_selected_id_in_options(self.selected_id)
+        self.selected_id = selection if self.is_selected_id_in_options(selection) else self.default_id
 
     def get_selected(self) -> ParameterOption:
         return next(x for x in self.options if x.identifier == self.selected_id)
@@ -189,9 +187,8 @@ class SingleSelectParameter(_SelectionParameter):
         super().refresh(parameters)
         if self.parent is not None:
             default_id = next(self.get_cond_default_iterator(), None)
-            self.selected_id = self.get_default_with_nullable_id(default_id)
-        else:
-            self.selected_id = self.default_id
+            self.default_id = self.get_default_with_nullable_id(default_id)
+        self.selected_id = self.default_id
 
     def to_dict(self):
         output = super().to_dict()
@@ -215,9 +212,10 @@ class MultiSelectParameter(_SelectionParameter):
         self.order_matters = order_matters
 
     def set_selection(self, selection: str):
-        self.selected_ids = selection.split(',')
-        for selected_id in self.selected_ids:
-            self.verify_selected_id_in_options(selected_id)
+        selection_split = selection.split(',')
+        self.selected_ids = [x for x in selection_split if self.is_selected_id_in_options(x)]
+        if len(self.selected_ids) == 0:
+            self.selected_ids = self.default_ids
 
     def get_selected_list(self) -> List[ParameterOption]:
         if len(self.selected_ids) == 0 and self.include_all:
@@ -241,9 +239,8 @@ class MultiSelectParameter(_SelectionParameter):
     def refresh(self, parameters: ParameterSet):
         super().refresh(parameters)
         if self.parent is not None:
-            self.selected_ids = list(self.get_cond_default_iterator())
-        else:
-            self.selected_ids = self.default_ids
+            self.default_ids = list(self.get_cond_default_iterator())
+        self.selected_ids = self.default_ids
 
     def to_dict(self):
         output = super().to_dict()
@@ -296,10 +293,18 @@ class _NumericParameter(_Parameter):
         if (self.max_value - self.min_value) % self.increment != 0:
             raiseParameterError(self.name, f'the increment "{self.increment}" must fit evenly between the min_value "{self.min_value}" and max_value "{self.max_value}"', ValueError)
 
-    def validate_value(self, value):
-        if value < self.min_value or value > self.max_value:
+    def value_in_range(self, value):
+        return self.min_value <= value <= self.max_value
+    
+    def value_on_increment(self, value, min_value=None):
+        min_value = self.min_value if min_value is None else min_value
+        diff = (value - min_value)
+        return diff >= 0 and diff % self.increment == 0
+
+    def validate_value(self, value, min_value=None):
+        if not self.value_in_range(value):
             raiseParameterError(self.name, f'the selected value "{value}" is out of bounds', ValueError)
-        if (value - self.min_value) % self.increment != 0:
+        if not self.value_on_increment(value, min_value):
             raiseParameterError(self.name, f'the difference between selected value "{value}" and min_value "{self.min_value}" must be a multiple of increment "{self.increment}"', ValueError)
 
     def to_dict(self):
@@ -312,16 +317,19 @@ class _NumericParameter(_Parameter):
 
 @dataclass
 class NumberParameter(_NumericParameter):
+    default_value: Decimal
     selected_value: Decimal
 
     def __init__(self, name: str, label: str, min_value: Union[Decimal, int, str], max_value: Union[Decimal, int, str], 
-                 increment: Union[Decimal, int, str], selected_value: Union[Decimal, int, str], *, is_hidden: bool = False):
+                 increment: Union[Decimal, int, str], default_value: Union[Decimal, int, str], *, is_hidden: bool = False):
         super().__init__(WidgetType.NumberField, name, label, is_hidden, min_value, max_value, increment)
-        self.selected_value = Decimal(selected_value)
-        self.validate_value(selected_value)
+        self.default_value = Decimal(default_value)
+        self.selected_value = self.default_value
+        self.validate_value(default_value)
     
     def set_selection(self, selection: str):
-        self.selected_value = Decimal(selection)
+        selection_decimal = Decimal(selection)
+        self.selected_value = selection_decimal if self.value_in_range(selection_decimal) and self.value_on_increment(selection_decimal) else self.default_value
 
     def get_selected_value(self) -> str:
         return str(self.selected_value)
@@ -334,21 +342,29 @@ class NumberParameter(_NumericParameter):
 
 @dataclass
 class RangeParameter(_NumericParameter):
+    default_lower_value: Decimal
+    default_upper_value: Decimal
     selected_lower_value: Decimal
     selected_upper_value: Decimal
 
     def __init__(self, name: str, label: str, min_value: Union[Decimal, int, str], max_value: Union[Decimal, int, str], increment: Union[Decimal, int, str], 
-                 selected_lower_value: Union[Decimal, int, str], selected_upper_value: Union[Decimal, int, str], *, is_hidden: bool = False):
+                 default_lower_value: Union[Decimal, int, str], default_upper_value: Union[Decimal, int, str], *, is_hidden: bool = False):
         super().__init__(WidgetType.RangeField, name, label, is_hidden, min_value, max_value, increment)
-        self.selected_lower_value = Decimal(selected_lower_value)
-        self.selected_upper_value = Decimal(selected_upper_value)
-        self.validate_value(selected_lower_value)
-        self.validate_value(selected_upper_value)
+        self.default_lower_value = Decimal(default_lower_value)
+        self.default_upper_value = Decimal(default_upper_value)
+        self.selected_lower_value = self.default_lower_value
+        self.selected_upper_value = self.default_upper_value
+        self.validate_value(default_lower_value)
+        self.validate_value(default_upper_value, default_lower_value)
     
     def set_selection(self, selection: str):
-        lower, upper = selection.split(',')
-        self.selected_lower_value = Decimal(lower)
-        self.selected_upper_value = Decimal(upper)
+        lower, upper = [Decimal(x) for x in selection.split(',')]
+        if self.value_in_range(lower) and self.value_in_range(upper) and self.value_on_increment(lower) and self.value_on_increment(upper, lower):
+            self.selected_lower_value = lower
+            self.selected_upper_value = upper
+        else:
+            self.selected_lower_value = self.default_lower_value
+            self.selected_upper_value = self.default_upper_value
 
     def get_selected_lower_value(self) -> str:
         return str(self.selected_lower_value)

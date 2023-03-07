@@ -3,6 +3,7 @@ from typing import Dict, List, FrozenSet, Tuple
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from cachetools.func import ttl_cache
 
 from squirrels import major_verion, constants as c, context
@@ -62,7 +63,12 @@ def get_results_helper(dataset: str, query_params: FrozenSet[Tuple[str, str]]):
         
 def run(no_cache: bool, uvicorn_args: List[str]):
     app = FastAPI()
-    templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), 'templates'))
+
+    static_dir = os.path.join(os.path.dirname(__file__), 'static')
+    app.mount('/static', StaticFiles(directory=static_dir), name='static')
+
+    templates_dir = os.path.join(os.path.dirname(__file__), 'templates')
+    templates = Jinja2Templates(directory=templates_dir)
 
     context.initialize(c.MANIFEST_FILE)
     squirrels_version_path = f'/squirrels{major_verion}'
@@ -104,8 +110,8 @@ def run(no_cache: bool, uvicorn_args: List[str]):
             datasets.append({
                 'dataset': dataset,
                 'label': dataset_context[c.DATASET_LABEL_KEY],
-                'parameters': base_path + parameters_path.format(dataset=dataset_normalized),
-                'result': base_path + results_path.format(dataset=dataset_normalized)
+                'parameters_path': base_path + parameters_path.format(dataset=dataset_normalized),
+                'result_path': base_path + results_path.format(dataset=dataset_normalized)
             })
         return {'project_variables': context.parms[c.PROJ_VARS_KEY], 'resource_paths': datasets}
     

@@ -2,154 +2,24 @@
 <html>
     <head>
         <title>Squirrels UI</title>
-        <style>
-        table {
-            border-collapse: collapse;
-            width: 100%;
-        }
-        th, td {
-            text-align: left;
-            padding: 8px;
-        }
-        th {
-            background-color: #4285f4;
-            color: white;
-        }
-        tr:nth-child(even) {
-            background-color: #f2f2f2;
-        }
-        input, select {
-            width: 100%;
-            padding: 12px 20px;
-            margin: 8px 0;
-            box-sizing: border-box;
-            border: 2px solid #ccc;
-            border-radius: 4px;
-        }
-        input[type=submit] {
-            background-color: #4285f4;
-            color: white;
-            padding: 12px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        input[type=submit]:hover {
-            background-color: #3076c5;
-        }
-        .parameter-container {
-            width: 250px;
-            margin-right: 50px;
-        }
-        </style>
+        <link href="{{ url_for('static', path='/style.css') }}" rel="stylesheet">
+        <script src="{{ url_for('static', path='/script.js') }}" defer></script>
     </head>
     <body>
-    <div style="display: flex;">
-        <div class="parameter-container" style="width: 30%; padding: 10px;">
-            <form>
-                <label for="dataset-select">Select a Dataset:</label>
-                <select id="dataset-select"></select>
-                <div id="generated-parameters"></div>
-                <input type="submit" value="Apply">
-            </form>
+    <div id="main-container">
+        <div id="parameter-container">
+            <label for="dataset-select">Select a Dataset:</label>
+            <select id="dataset-select"></select>
+            <div id="generated-parameters"></div>
+            <input type="submit" value="Apply" onclick="get_dataset_results()">
         </div>
-        <div style="width: 70%; padding: 20px;">
-            <table>
-                <thead>
-                <tr>
-                    <th>Column 1</th>
-                    <th>Column 2</th>
-                </tr>
-                </thead>
-                <tbody>
-                <tr>
-                    <td>Data 1</td>
-                    <td>Data 2</td>
-                </tr>
-                <tr>
-                    <td>Data 3</td>
-                    <td>Data 4</td>
-                </tr>
-                </tbody>
+        <div id="table-container">
+            <button onclick="copyTable()">Copy Table</button>
+            <table id="result-table">
+                <thead id="table-header"></thead>
+                <tbody id="table-body"></tbody>
             </table>
         </div>
-        
-        <script>
-            const datasetSelect = document.getElementById('dataset-select');
-            const generatedParamsDiv = document.getElementById('generated-parameters');
-
-            const datasetsMap = new Map();
-            const parametersMap = new Map();
-
-            fetch('/squirrels0')
-                .then(response => response.json())
-                .then(data => {
-                    data.resource_paths.forEach(resource => {
-                        const option = document.createElement('option');
-                        option.value = resource.dataset;
-                        option.textContent = resource.label;
-                        datasetSelect.appendChild(option);
-                        datasetsMap.set(resource.dataset, resource);
-                    });
-                    refresh_parameters();
-                })
-                .catch(error => console.error(error));
-            
-            function refresh_parameters() {
-                const selectedDatasetValue = datasetSelect.value;
-                const parametersPath = datasetsMap.get(selectedDatasetValue).parameters;
-                fetch(parametersPath)
-                    .then(response => response.json())
-                    .then(data => {
-                        var parameters = data.parameters;
-                        generatedParamsDiv.innerHTML = "";
-                        parameters.forEach(function(param) {
-                            var widget;
-                            if (param.widget_type === "DateField") {
-                                widget = "<label>" + param.label + ": </label><input type='date' id='" + param.name + "' value='" + param.selected_date + "'>";
-                            } else if (param.widget_type === "SingleSelect") {
-                                widget = "<label>" + param.label + ": </label><select id='" + param.name + "'>";
-                                param.options.forEach(function(option) {
-                                    widget += "<option value='" + option.id + "'";
-                                    if (option.id === param.selected_id) {
-                                        widget += " selected";
-                                    }
-                                    widget += ">" + option.label + "</option>";
-                                });
-                                widget += "</select>";
-                            } else if (param.widget_type === "NumberField") {
-                                widget = "<label>" + param.label + ": </label>"
-                                widget += "<input type='number' id='" + param.name + "' min='" + param.min_value + "' max='" + param.max_value + "' step='" + param.increment + "' value='" + param.selected_value + "'>";
-                            } else if (param.widget_type === "MultiSelect") {
-                                widget = "<label>" + param.label + ": </label><select id='" + param.name + "' multiple>";
-                                if (param.include_all) {
-                                    widget += "<option value='all'";
-                                    if (param.selected_ids.includes("all")) {
-                                        widget += " selected";
-                                    }
-                                    widget += ">All</option>";
-                                }
-                                param.options.forEach(function(option) {
-                                    widget += "<option value='" + option.id + "'";
-                                    if (param.selected_ids.includes(option.id)) {
-                                        widget += " selected";
-                                    }
-                                    widget += ">" + option.label + "</option>";
-                                });
-                                widget += "</select><br>";
-                            }
-                            generatedParamsDiv.innerHTML += widget;
-                            parametersMap.set(param.name, param)
-                        })
-                    })
-                    .catch(error => console.error(error));
-            }
-
-            function update_parameter(element) {
-                const paramObj = parametersMap.get(element.name)
-                paramObj.selected = element.value
-            }
-        </script>
     </div>
     </body>
 </html>
