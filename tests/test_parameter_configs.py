@@ -35,10 +35,10 @@ def test_parameters_to_dict():
         'widget_type': 'NumberField',
         'name': 'num_periods',
         'label': 'Number of Time Units',
-        'min_value': '1',
-        'max_value': '365',
-        'increment': '1',
-        'selected_value': '30'
+        'min_value': '7',
+        'max_value': '364',
+        'increment': '7',
+        'selected_value': '28'
     }
     assert(parameters.get_parameter('num_periods').to_dict() == num_periods_dict)
 
@@ -46,9 +46,7 @@ def test_parameters_to_dict():
         'widget_type': 'MultiSelect',
         'name': 'time_of_year',
         'label': 'Time of Year',
-        'options': [
-            {'id': '0', 'label': 'No Options'}
-        ],
+        'options': [],
         'selected_ids': [],
         'trigger_refresh': False,
         'include_all': True,
@@ -107,11 +105,11 @@ def test_refresh():
     time_of_year_parm: MultiSelectParameter = parameters.get_parameter('time_of_year')
     time_of_year_parm.refresh(parameters)
     expected_time_of_year_options =  [
-        ParameterOption('14', 'Q1'),
-        ParameterOption('15', 'Q2'),
-        ParameterOption('16', 'Q3'),
-        ParameterOption('17', 'Q4')
+        ParameterOption('13', 'Q1'),
+        ParameterOption('14', 'Q2'),
+        ParameterOption('15', 'Q3'),
+        ParameterOption('16', 'Q4')
     ]
     assert([x.to_dict() for x in time_of_year_parm.options] == [x.to_dict() for x in expected_time_of_year_options])
-    assert(time_of_year_parm.get_selected_ids() == '16')
+    assert(time_of_year_parm.get_selected_ids() == '13, 14, 15, 16')
     

@@ -21,9 +21,8 @@ setup(
     license='MIT',
     install_requires=[
         'cachetools', 'fastapi', 'uvicorn', 'Jinja2', 
-        'GitPython', 'pandasql', 'pandas', 'sqlalchemy<2'
+        'GitPython', 'pandasql', 'pandas', 'sqlalchemy<2', 'pyyaml'
     ],
-    extras_require=[],
     setup_requires=['pytest-runner==6.0.0', 'setuptools_scm'],
     tests_require=['pytest==7.2.0'],
     test_suite='tests',

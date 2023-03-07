@@ -1,3 +1,4 @@
+pyyaml
 sqlalchemy<2
 pandas
 pandasql
