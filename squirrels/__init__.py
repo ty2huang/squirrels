@@ -1,5 +1,8 @@
 from squirrels.parameter_configs import *
+import os
 
-__version__ = '0.1.0'
+version_file = os.path.join(os.path.dirname(__file__), 'version.txt')
+with open(version_file, 'r') as f:
+    __version__ = f.read()
 
-major_verion, minor_version, patch_version = __version__.split('.')
+major_version, minor_version, patch_version = __version__.split('.')

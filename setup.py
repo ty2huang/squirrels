@@ -1,6 +1,8 @@
 from setuptools import setup
 from os import path
-from squirrels import __version__
+
+with open('squirrels/version.txt') as f:
+    __version__ = f.read()
 
 # The directory containing this file
 HERE = path.abspath(path.dirname(__file__))

@@ -6,7 +6,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from cachetools.func import ttl_cache
 
-from squirrels import major_verion, constants as c, context
+from squirrels import major_version, constants as c, context
 from squirrels.renderer import Renderer
 from squirrels.parameter_configs import ParameterSet
 
@@ -71,7 +71,7 @@ def run(no_cache: bool, uvicorn_args: List[str]):
     templates = Jinja2Templates(directory=templates_dir)
 
     context.initialize(c.MANIFEST_FILE)
-    squirrels_version_path = f'/squirrels{major_verion}'
+    squirrels_version_path = f'/squirrels{major_version}'
     config_base_path = normalize_name_for_api(context.parms[c.BASE_PATH_KEY])
     base_path = squirrels_version_path + config_base_path
 
