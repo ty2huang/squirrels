@@ -1,23 +1,25 @@
 from squirrels.parameter_configs import *
 import importlib
 
-importlib.import_module("datasets.stock_price_history.parameters")
+param_module = importlib.import_module("datasets.stock_price_history.parameters")
 
 
 def test_parameters_to_dict():
-    parameters = ParameterSet()
+    parameters = param_module.main()
 
+    name = 'reference_date'
     reference_date_dict = {
         'widget_type': 'DateField',
-        'name': 'reference_date',
+        'name': name,
         'label': 'Reference Date',
         'selected_date': '2023-01-31'
     }
-    assert(parameters.get_parameter('reference_date').to_dict() == reference_date_dict)
+    assert(parameters.get_parameter_by_name(name)._to_dict(name) == reference_date_dict)
 
+    name = 'time_unit'
     time_unit_dict = {
         'widget_type': 'SingleSelect',
-        'name': 'time_unit',
+        'name': name,
         'label': 'Time Unit',
         'options': [
             {'id': '0', 'label': 'Days'}, 
@@ -29,22 +31,24 @@ def test_parameters_to_dict():
         'selected_id': '0',
         'trigger_refresh': True
     }
-    assert(parameters.get_parameter('time_unit').to_dict() == time_unit_dict)
+    assert(parameters.get_parameter_by_name(name)._to_dict(name) == time_unit_dict)
     
+    name = 'num_periods'
     num_periods_dict = {
         'widget_type': 'NumberField',
-        'name': 'num_periods',
+        'name': name,
         'label': 'Number of Time Units',
         'min_value': '7',
         'max_value': '364',
         'increment': '7',
         'selected_value': '28'
     }
-    assert(parameters.get_parameter('num_periods').to_dict() == num_periods_dict)
+    assert(parameters.get_parameter_by_name(name)._to_dict(name) == num_periods_dict)
 
+    name = 'time_of_year'
     time_of_year_dict = {
         'widget_type': 'MultiSelect',
-        'name': 'time_of_year',
+        'name': name,
         'label': 'Time of Year',
         'options': [],
         'selected_ids': [],
@@ -52,11 +56,12 @@ def test_parameters_to_dict():
         'include_all': True,
         'order_matters': False
     }
-    assert(parameters.get_parameter('time_of_year').to_dict() == time_of_year_dict)
+    assert(parameters.get_parameter_by_name(name)._to_dict(name) == time_of_year_dict)
 
+    name = 'ticker'
     ticker_dict = {
         'widget_type': 'MultiSelect',
-        'name': 'ticker',
+        'name': name,
         'label': 'Ticker',
         'data_source': {
             'table_or_query': 'lu_tickers',
@@ -68,17 +73,17 @@ def test_parameters_to_dict():
             'is_cond_default_col': None
         }
     }
-    assert(parameters.get_parameter('ticker').to_dict() == ticker_dict)
+    assert(parameters.get_parameter_by_name(name)._to_dict(name) == ticker_dict)
 
     parameters_dict = { 'parameters': [
         reference_date_dict, time_unit_dict, num_periods_dict, time_of_year_dict, ticker_dict
     ] }
-    assert(parameters.to_dict() == parameters_dict)
+    assert(parameters._to_dict() == parameters_dict)
 
 
 def test_convert_datasource_params():
-    parameters = ParameterSet()
-    parameters.convert_datasource_params()
+    parameters = param_module.main()
+    parameters._convert_datasource_params('product_profile')
 
     ticker_dict = {
         'widget_type': 'MultiSelect',
@@ -95,14 +100,14 @@ def test_convert_datasource_params():
         'include_all': True,
         'order_matters': False
     }
-    assert(parameters.get_parameter('ticker').to_dict() == ticker_dict)
+    assert(parameters.get_parameter_by_name('ticker')._to_dict('ticker') == ticker_dict)
 
 
 def test_refresh():
-    parameters = ParameterSet()
-    parent_parm: SingleSelectParameter = parameters.get_parameter('time_unit')
+    parameters = param_module.main()
+    parent_parm: SingleSelectParameter = parameters.get_parameter_by_name('time_unit')
     parent_parm.set_selection('3')
-    time_of_year_parm: MultiSelectParameter = parameters.get_parameter('time_of_year')
+    time_of_year_parm: MultiSelectParameter = parameters.get_parameter_by_name('time_of_year')
     time_of_year_parm.refresh(parameters)
     expected_time_of_year_options =  [
         ParameterOption('13', 'Q1'),
@@ -110,6 +115,6 @@ def test_refresh():
         ParameterOption('15', 'Q3'),
         ParameterOption('16', 'Q4')
     ]
-    assert([x.to_dict() for x in time_of_year_parm.options] == [x.to_dict() for x in expected_time_of_year_options])
+    assert([x._to_dict() for x in time_of_year_parm.options] == [x._to_dict() for x in expected_time_of_year_options])
     assert(time_of_year_parm.get_selected_ids() == '13, 14, 15, 16')
     

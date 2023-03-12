@@ -26,6 +26,12 @@ def initialize(manifest_path):
 
 def get_dataset_parms(dataset: str) -> Dict[str, Any]:
     return parms[c.DATASETS_KEY][dataset]
+    
+
+def get_db_profile_name(dataset: str) -> str:
+    dataset_parms = get_dataset_parms(dataset)
+    return dataset_parms.get(c.DB_PROFILE_KEY, parms[c.DB_PROFILE_KEY])
+
 
 def get_setting(key: str, default: Any):
     settings: Dict[str, str] = parms.get(c.SETTINGS_KEY, {})

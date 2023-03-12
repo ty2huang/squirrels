@@ -1,5 +1,5 @@
 import json, os
-from typing import Dict, List, FrozenSet, Tuple
+from typing import Dict, List, FrozenSet, Tuple, TYPE_CHECKING
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -8,7 +8,11 @@ from cachetools.func import ttl_cache
 
 from squirrels import major_version, constants as c, context
 from squirrels.renderer import Renderer
+
+#if TYPE_CHECKING:
 from squirrels.parameter_configs import ParameterSet
+
+debug = False
 
 
 def normalize_name(name: str):
@@ -21,7 +25,7 @@ def normalize_name_for_api(name: str):
 def load_selected_parameters(renderer: Renderer, query_params: FrozenSet[Tuple[str, str]]) -> ParameterSet:
     parameters = renderer.parameters
     query_params_dict = dict(query_params)
-    for name, parameter in parameters.parameters_dict.items():
+    for name, parameter in parameters._parameters_dict.items():
         parameter.refresh(parameters)
         selected_value = query_params_dict.get(name)
         if selected_value is not None:
@@ -30,6 +34,7 @@ def load_selected_parameters(renderer: Renderer, query_params: FrozenSet[Tuple[s
 
 
 def load_dataframe(renderer: Renderer):
+    renderer.set_job_context()
     sql_by_view_name = renderer.get_rendered_sql_by_view()
     
     dataset_context = context.get_dataset_parms(renderer.dataset)
@@ -50,7 +55,7 @@ def template_function(dataset: str, request: Request, helper_func):
 def get_parameters_helper(dataset: str, query_params: FrozenSet[Tuple[str, str]]):
     renderer = Renderer(dataset)
     parameters = load_selected_parameters(renderer, query_params)
-    return parameters.to_dict()
+    return parameters._to_dict(debug)
     
 
 # Helper functions for "get_results" api
@@ -61,8 +66,16 @@ def get_results_helper(dataset: str, query_params: FrozenSet[Tuple[str, str]]):
     return json.loads(df.to_json(orient='table', index=False))
         
         
-def run(no_cache: bool, uvicorn_args: List[str]):
+def run(no_cache: bool, debug_value: bool, uvicorn_args: List[str]):
+    global debug
+    debug = debug_value
+
     app = FastAPI()
+
+    context.initialize(c.MANIFEST_FILE)
+    squirrels_version_path = f'/squirrels{major_version}'
+    config_base_path = normalize_name_for_api(context.parms[c.BASE_PATH_KEY])
+    base_path = squirrels_version_path + config_base_path
 
     static_dir = os.path.join(os.path.dirname(__file__), 'static')
     app.mount('/static', StaticFiles(directory=static_dir), name='static')
@@ -70,18 +83,13 @@ def run(no_cache: bool, uvicorn_args: List[str]):
     templates_dir = os.path.join(os.path.dirname(__file__), 'templates')
     templates = Jinja2Templates(directory=templates_dir)
 
-    context.initialize(c.MANIFEST_FILE)
-    squirrels_version_path = f'/squirrels{major_version}'
-    config_base_path = normalize_name_for_api(context.parms[c.BASE_PATH_KEY])
-    base_path = squirrels_version_path + config_base_path
-
     # Parameters API
     parameters_path = '/{dataset}/parameters'
     # TODO: create setting for ttl cache time seconds
 
     @ttl_cache(maxsize=context.get_setting(c.PARAMETERS_CACHESIZE_SETTING, 1024))
-    def get_parameters_cachable(dataset: str, query_params: FrozenSet[Tuple[str, str]]):
-        return get_parameters_helper(dataset, query_params)
+    def get_parameters_cachable(*args):
+        return get_parameters_helper(*args)
     
     @app.get(base_path + parameters_path, response_class=JSONResponse)
     async def get_parameters(dataset: str, request: Request):
@@ -92,8 +100,8 @@ def run(no_cache: bool, uvicorn_args: List[str]):
     results_path = '/{dataset}'
 
     @ttl_cache(maxsize=context.get_setting(c.RESULTS_CACHESIZE_SETTING, 128))
-    def get_results_cachable(dataset: str, query_params: FrozenSet[Tuple[str, str]]):
-        return get_results_helper(dataset, query_params)
+    def get_results_cachable(*args):
+        return get_results_helper(*args)
     
     @app.get(base_path + results_path, response_class=JSONResponse)
     async def get_results(dataset: str, request: Request):
@@ -101,7 +109,7 @@ def run(no_cache: bool, uvicorn_args: List[str]):
         return template_function(dataset, request, helper_func)
     
     # Catalog API
-    @app.get(squirrels_version_path, response_class=JSONResponse)
+    @app.get(base_path, response_class=JSONResponse)
     async def get_catalog():
         all_dataset_contexts: Dict = context.parms[c.DATASETS_KEY]
         datasets = []
@@ -118,7 +126,7 @@ def run(no_cache: bool, uvicorn_args: List[str]):
     # Squirrels UI
     @app.get('/', response_class=HTMLResponse)
     async def get_ui(request: Request):
-        return templates.TemplateResponse('index.html', {'request': request})
+        return templates.TemplateResponse('index.html', {'request': request, 'base_path': base_path})
 
     
     # Run API server

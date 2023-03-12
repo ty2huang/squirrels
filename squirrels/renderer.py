@@ -1,10 +1,11 @@
-import os, json, time
+import os, json, time, copy
 import concurrent.futures
-from typing import Dict, Tuple, List, Union, Any
+from typing import Dict, Tuple, List, Union, Any, TYPE_CHECKING
 from importlib.machinery import SourceFileLoader
 from configparser import ConfigParser
 from pathlib import Path
-from squirrels import constants as c, parameter_configs, context
+from functools import lru_cache
+from squirrels import constants as c, context as ctx
 from squirrels.db_conn import DbConnection
 
 start = time.time()
@@ -12,13 +13,18 @@ import jinja2 as j2
 c.timer.add_activity_time(c.IMPORT_JINJA, start)
 
 start = time.time()
-from pandas import DataFrame
 from pandasql import sqldf
+# if TYPE_CHECKING:
+from pandas import DataFrame
 c.timer.add_activity_time(c.IMPORT_PANDAS, start)
+
+# if TYPE_CHECKING:
+from squirrels.parameter_configs import ParameterSet
 
 
 def join_paths(path1: str, path2: str):
     return Path(path1) / path2
+
 
 def get_file_path(relative_folder: str, filename: str):
     filepath = join_paths(relative_folder, filename) if filename is not None else None
@@ -27,39 +33,64 @@ def get_file_path(relative_folder: str, filename: str):
     return str(filepath) if filepath is not None else None
 
 
+@lru_cache(maxsize=None)
+def load_parameters(input_folder: str, dataset: str, lu_data: str) -> ParameterSet:
+    module_path = get_file_path(input_folder, c.PARAMETERS_MODULE+'.py')
+    module = SourceFileLoader(c.PARAMETERS_MODULE, module_path).load_module()
+    parameters: ParameterSet = module.main()
+    lu_data_path = get_file_path(input_folder, lu_data)
+    db_profile_name = ctx.get_db_profile_name(dataset)
+    parameters._convert_datasource_params(db_profile_name, lu_data_path)
+    return parameters
+
+
 class Renderer:
     def __init__(self, dataset, selection_cfg: str = None, lu_data: str = None) -> None:
-        context.initialize(c.MANIFEST_FILE)
+        # Dynamically import the parameters.py configuration file and convert all datasources parameters
+        start = time.time()
+        ctx.initialize(c.MANIFEST_FILE)
         self.dataset = dataset
         self.input_folder = join_paths(c.DATASETS_FOLDER, dataset)
         self.selection_cfg = get_file_path(self.input_folder, selection_cfg)
-        self.lu_data = get_file_path(self.input_folder, lu_data)
-        self.parameters = self.load_parameters()
+        self.parameters = copy.deepcopy(load_parameters(self.input_folder, dataset, lu_data))
+        self.job_context = {}
+        c.timer.add_activity_time('initialize Renderer', start)
 
+    def set_job_context(self) -> Dict[str, Any]:
+        try:
+            module_path = get_file_path(self.input_folder, 'context.py')
+            module = SourceFileLoader('job_context', module_path).load_module()
+            self.job_context = module.main(self.parameters.get_parameter_by_name)
+        except FileNotFoundError:
+            pass
         
-    def load_parameters(self) -> parameter_configs.ParameterSet:
-        module_path = get_file_path(self.input_folder, c.PARAMETERS_MODULE+'.py')
-        SourceFileLoader(c.PARAMETERS_MODULE, module_path).load_module()
-        parameters = parameter_configs.ParameterSet()
-        parameters.convert_datasource_params(self.lu_data)
-        return parameters
+    def get_job_context_by_name(self, name: str):
+        return self.job_context[name]
+    
+    def get_project_var(self, name: str):
+        return ctx.parms[c.PROJ_VARS_KEY][name]
     
     
-    def run_final_view_in_python(self, py_file: str, database_views: Dict[str, DataFrame]) -> DataFrame:
+    def run_final_view_from_python(self, py_file: str, database_views: Dict[str, DataFrame]) -> DataFrame:
         module_path = get_file_path(self.input_folder, py_file)
-        module = SourceFileLoader(c.PARAMETERS_MODULE, module_path).load_module()
-        return module.main(database_views)
+        module = SourceFileLoader('final_view', module_path).load_module()
+        return module.main(database_views, self.parameters.get_parameter_by_name, 
+                           self.get_job_context_by_name, self.get_project_var)
 
     
     def render_view(self, view_file: str) -> str:
-        parms_dict = self.parameters.parameters_dict
         env = j2.Environment(loader=j2.FileSystemLoader('.'))
         template = env.get_template(view_file.replace('\\', '/'))
-        return template.render(parms_dict)
+        args = {
+            'prms': self.parameters.get_parameter_by_name,
+            'ctx':  self.get_job_context_by_name,
+            'proj': self.get_project_var
+        }
+        return template.render(args)
     
 
     def get_rendered_sql_by_view(self) -> Dict[str, str]:
-        dataset_parms = context.parms[c.DATASETS_KEY][self.dataset]
+        dataset_parms = ctx.parms[c.DATASETS_KEY][self.dataset]
         bigdata_sql = dataset_parms[c.DATABASE_VIEWS_KEY]
         
         output = {}
@@ -71,20 +102,24 @@ class Renderer:
 
 
     def get_all_results(self, sql_by_view_name: str, final_view_name: str, final_view_sql_str: str = None) -> Tuple[Dict[str, DataFrame], DataFrame]:
-        conn = DbConnection()
+        conn = DbConnection(ctx.get_db_profile_name(self.dataset))
         def run_single_query(item) -> Dict[str, DataFrame]:
             view_name, query = item
             return view_name, conn.get_dataframe_from_query(query)
         
+        start = time.time()
         with concurrent.futures.ThreadPoolExecutor() as executor:
             df_by_view_name = dict(executor.map(run_single_query, sql_by_view_name.items()))
+        c.timer.add_activity_time('run database views', start)
         
+        start = time.time()
         if final_view_name in sql_by_view_name:
             final_df = df_by_view_name[final_view_name]
         elif final_view_name.endswith('.py'):
-            final_df = self.run_final_view_in_python(final_view_name, df_by_view_name)
+            final_df = self.run_final_view_from_python(final_view_name, df_by_view_name)
         else:
             final_df = sqldf(final_view_sql_str, env=df_by_view_name)
+        c.timer.add_activity_time('run final view', start)
         
         return df_by_view_name, final_df
     
@@ -98,11 +133,6 @@ class Renderer:
     
 
     def write_outputs(self, runquery: bool):
-        # Dynamically import the parameters.py configuration file and convert all datasources parameters
-        start = time.time()
-        parms = self.load_parameters()
-        c.timer.add_activity_time('dynamic import', start)
-
         # Apply selections from selections.cfg
         start = time.time()
         if self.selection_cfg is not None:
@@ -110,11 +140,16 @@ class Renderer:
             config.read(self.selection_cfg)
             if config.has_section(c.PARAMETERS_SECTION):
                 config_section = config[c.PARAMETERS_SECTION]
-                for name, parameter in parms.parameters_dict.items():
-                    parameter.refresh(parms)
+                for name, parameter in self.parameters._parameters_dict.items():
+                    parameter.refresh(self.parameters)
                     if name in config_section:
                         parameter.set_selection(config_section[name])
         c.timer.add_activity_time('apply selections', start)
+
+        # Set context
+        start = time.time()
+        self.set_job_context()
+        c.timer.add_activity_time('set job context', start)
 
         # Clear output folder contents and write the parameters metadata to file
         start = time.time()
@@ -129,12 +164,12 @@ class Renderer:
         
         parameters_outfile = join_paths(output_folder, c.PARAMETERS_OUTPUT)
         with open(parameters_outfile, 'w') as f:
-            json.dump(parms.to_dict(), f, indent=4)
+            json.dump(self.parameters._to_dict(), f, indent=4)
         c.timer.add_activity_time('write parameters', start)
         
         # Render and write the sql queries
         start = time.time()
-        dataset_parms = context.parms[c.DATASETS_KEY][self.dataset]
+        dataset_parms = ctx.parms[c.DATASETS_KEY][self.dataset]
         
         def write_sql_file(view_name, sql_str):
             sql_file = join_paths(output_folder, view_name+'.sql')

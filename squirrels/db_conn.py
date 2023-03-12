@@ -1,6 +1,5 @@
 import time
 from squirrels import profile_manager as pm, constants as c
-from squirrels import context as context
 
 start = time.time()
 from sqlalchemy import create_engine, text
@@ -12,14 +11,9 @@ c.timer.add_activity_time(c.IMPORT_PANDAS, start)
 
 
 class DbConnection:
-    def __init__(self, in_memory = False):
-        context.initialize(c.MANIFEST_FILE)
-        if in_memory:
-            self.engine = create_engine('sqlite:///:memory:')
-        else:
-            profile_name = context.parms[c.DB_PROFILE_KEY]
-            profile = pm.Profile(profile_name).get()
-            self.engine = create_engine(f'{profile[c.DIALECT]}://{profile[c.USERNAME]}:{profile[c.PASSWORD]}@{profile[c.CONN_URL]}')
+    def __init__(self, profile_name: str):
+        profile = pm.Profile(profile_name).get()
+        self.engine = create_engine(f'{profile[c.DIALECT]}://{profile[c.USERNAME]}:{profile[c.PASSWORD]}@{profile[c.CONN_URL]}')
 
     
     def get_dataframe_from_query(self, query: str):

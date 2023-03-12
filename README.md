@@ -25,7 +25,6 @@ It's also called "squirrels" for the following reasons:
         - get catalog of all dataset resource paths for this project
     - `/` **[DONE]**
         - UI for sample testing interface
-- Introduce job context variables (as lambda functions with no parameters), and support sql templating with job context variables and project variables
+- Introduce context variables, and support sql templating with context variables and project variables **[DONE]**
 - Provide a `squirrels init` CLI to create a squirrels project from scratch including sample files for manifest.yaml, parameters.py, functions.py, database_view.sql.j2, selections.cfg, sample_lu_data.csv, and .gitignore
 - Provide a `squirrels unit-test` CLI to perform unit tests from a `tests` folder
-- Allow for an optional db_profile value for each database_view object

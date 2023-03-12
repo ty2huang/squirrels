@@ -15,7 +15,12 @@ datasets:
     database_views:
     - name: ticker_history
       file: ticker_history.sql.j2
-    final_view: ticker_history
+    final_view: final_view.sql.j2
+
+  dataset2:
+    label: Test Dataset
+    database_views: []
+    final_view: final_view.sql.j2
 
 settings:
   parameters.cachesize: 1024

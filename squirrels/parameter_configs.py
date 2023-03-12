@@ -1,18 +1,19 @@
 from __future__ import annotations
+import time, concurrent.futures
 from dataclasses import dataclass
 from collections import OrderedDict
 from typing import List, Dict, Optional, Union, Type
 from datetime import datetime
 from enum import Enum
 from decimal import Decimal
-from copy import deepcopy
 from squirrels import constants as c
 from squirrels.db_conn import DbConnection
-import time
+
 
 start = time.time()
 import pandas as pd
 c.timer.add_activity_time(c.IMPORT_PANDAS, start)
+
 
 class WidgetType(Enum):
     SingleSelect = 1
@@ -22,7 +23,7 @@ class WidgetType(Enum):
     RangeField = 5
 
 
-def raiseParameterError(param_name: str, remaining_message: str, errorClass: Type[Exception] = RuntimeError):
+def _raiseParameterError(param_name: str, remaining_message: str, errorClass: Type[Exception] = RuntimeError):
     message = f'For parameter "{param_name}", {remaining_message}'
     raise errorClass(message)
 
@@ -32,11 +33,14 @@ class DataSource:
     table_or_query: str
 
     def get_query(self):
-        if self.table_or_query.startswith('SELECT '):
+        if self.table_or_query.lower().startswith('select '):
             query = self.table_or_query
         else:
             query = f'SELECT * FROM {self.table_or_query}'
         return query
+    
+    def _convert(self, ds_param: DataSourceParameter, df: pd.DataFrame, from_sample: bool):
+        raise RuntimeError(f'Must override "convert" method in all classes that override the "{self.__class__.__name__}" class')
 
 
 @dataclass
@@ -58,6 +62,42 @@ class OptionsDataSource(DataSource):
         self.parent_id_col = parent_id_col
         self.is_cond_default_col = is_cond_default_col
 
+    def _convert(self, ds_param: DataSourceParameter, df: pd.DataFrame, from_sample: bool) -> Union[SingleSelectParameter, MultiSelectParameter]:
+        id_col = 'id' if from_sample else self.id_col
+        options_col = 'options' if from_sample else self.options_col
+        order_by_col = 'ordering' if from_sample else self.order_by_col
+        default_col = 'is_default' if from_sample else self.is_default_col
+        parent_id_col = 'parent_id' if from_sample else self.parent_id_col
+        cond_default_col = 'is_cond_default' if from_sample else self.is_cond_default_col
+        
+        def get_parent_id(row):
+            if parent_id_col is not None and not pd.isnull(row[parent_id_col]):
+                return str(row[parent_id_col])
+            else:
+                return None
+        
+        def is_cond_default(row):
+            if cond_default_col is not None and not pd.isnull(row[cond_default_col]):
+                return int(row[cond_default_col]) == 1
+            else:
+                return False
+        
+        df.sort_values(order_by_col, inplace=True)
+        options = [ParameterOption(str(row[id_col]), str(row[options_col]), get_parent_id(row), is_cond_default(row)) for _, row in df.iterrows()]
+        
+        default_ids = []
+        if default_col is not None:
+            df_filtered = df.query(f'{default_col} == 1')
+            default_ids = [str(x) for x in df_filtered[id_col].values.tolist()]
+        
+        if ds_param.widget_type == WidgetType.SingleSelect:
+            default_id = default_ids[0] if len(default_ids) > 0 else None
+            return SingleSelectParameter(ds_param.label, options, default_id=default_id, is_hidden=ds_param.is_hidden, 
+                                         trigger_refresh=ds_param.trigger_refresh, parent=ds_param.parent)
+        else:
+            return MultiSelectParameter(ds_param.label, options, default_ids=default_ids, is_hidden=ds_param.is_hidden, 
+                                         trigger_refresh=ds_param.trigger_refresh, parent=ds_param.parent)
+
 
 @dataclass
 class _NumericDataSource(DataSource):
@@ -65,19 +105,46 @@ class _NumericDataSource(DataSource):
     max_value_col: str
     increment_col: str
 
+    def _convert_helper(self, ds_param: DataSourceParameter, df: pd.DataFrame, from_sample: bool):
+        min_value_col = 'min_value' if from_sample else self.min_value_col
+        max_value_col = 'max_value' if from_sample else self.max_value_col
+        increment_col = 'increment' if from_sample else self.increment_col
+        return df[min_value_col].iloc[0], df[max_value_col].iloc[0], df[increment_col].iloc[0]
+
+
 @dataclass
 class NumberDataSource(_NumericDataSource):
     default_value_col: str
 
+    def _convert(self, ds_param: DataSourceParameter, df: pd.DataFrame, from_sample: bool) -> NumberParameter:
+        min_value, max_value, increment = self._convert_helper(ds_param, df, from_sample)
+        default_value_col = 'default_value' if from_sample else self.default_value_col
+        default_value = df[default_value_col].iloc[0]
+        return NumberParameter(ds_param.label, min_value, max_value, increment, default_value, id_hidden=ds_param.is_hidden)
+
+
 @dataclass
 class RangeDataSource(_NumericDataSource):
-    default_min_value_col: str
-    default_max_value_col: str
+    default_lower_value_col: str
+    default_upper_value_col: str
+
+    def _convert(self, ds_param: DataSourceParameter, df: pd.DataFrame, from_sample: bool) -> RangeParameter:
+        min_value, max_value, increment = self._convert_helper(ds_param, df, from_sample)
+        default_lower_value_col = 'default_lower_value' if from_sample else self.default_lower_value_col
+        default_upper_value_col = 'default_upper_value' if from_sample else self.default_upper_value_col
+        default_lower_value, default_upper_value = df[default_lower_value_col].iloc[0], df[default_upper_value_col].iloc[0]
+        return RangeParameter(ds_param.label, min_value, max_value, increment, default_lower_value, default_upper_value, 
+                              id_hidden=ds_param.is_hidden)
 
 
 @dataclass
 class DateDataSource(DataSource):
     default_date_col: str
+
+    def _convert(self, ds_param: DataSourceParameter, df: pd.DataFrame, from_sample: bool) -> DateParameter:
+        default_date_col = 'default_date' if from_sample else self.default_date_col
+        selected_date = df[default_date_col].iloc[0]
+        return DateParameter(ds_param.label, selected_date, is_hidden=ds_param.is_hidden)
 
 
 @dataclass
@@ -87,14 +154,13 @@ class ParameterOption:
     parent_id: Optional[str] = None
     is_cond_default: bool = False
 
-    def to_dict(self):
+    def _to_dict(self):
         return {'id': self.identifier, 'label': self.label}
 
 
 @dataclass
-class _Parameter:
+class Parameter:
     widget_type: WidgetType
-    name: str
     label: str
     is_hidden: bool
 
@@ -102,18 +168,18 @@ class _Parameter:
         pass # intentional, empty definition unless overwritten
 
     def set_selection(self, _: str):
-        raise RuntimeError('Must override "set_selection" method in all classes that override the "_Parameter" class')
+        raise RuntimeError(f'Must override "set_selection" method in all classes that override the "{self.__class__.__name__}" class')
 
-    def to_dict(self):
+    def _to_dict(self, name):
         return {
             'widget_type': self.widget_type.name,
-            'name': self.name,
+            'name': name,
             'label': self.label
         }
 
 
 @dataclass
-class _SelectionParameter(_Parameter):
+class _SelectionParameter(Parameter):
     options: List[ParameterOption]
     trigger_refresh: bool
     parent: Optional[str]
@@ -128,7 +194,7 @@ class _SelectionParameter(_Parameter):
     def refresh(self, parameters: ParameterSet):
         super().refresh(parameters)
         if self.parent is not None:
-            parent_param = parameters.get_parent_parameter(self.name)
+            parent_param: _SelectionParameter = parameters.get_parameter_by_name(self.parent)
             self.selected_parent_ids = set(parent_param.get_selected_ids_as_list())
             self.options = [x for x in self.all_options if x.parent_id in self.selected_parent_ids]
 
@@ -140,14 +206,14 @@ class _SelectionParameter(_Parameter):
     
     def verify_selected_id_in_options(self, selected_id):
         if not self.is_selected_id_in_options(selected_id):
-            raise raiseParameterError(self.name, f'the selected id "{selected_id}" is not selectable from options')
+            raise _raiseParameterError(self.label, f'the selected id "{selected_id}" is not selectable from options')
         
     def enquote(self, value):
         return "'" + value.replace("'", "''") + "'" 
 
-    def to_dict(self):
-        output = super().to_dict()
-        output['options'] = [x.to_dict() for x in self.options]
+    def _to_dict(self, name):
+        output = super()._to_dict(name)
+        output['options'] = [x._to_dict() for x in self.options]
         output['trigger_refresh'] = self.trigger_refresh
         return output
 
@@ -157,9 +223,9 @@ class SingleSelectParameter(_SelectionParameter):
     default_id: str
     selected_id: str
 
-    def __init__(self, name: str, label: str, options: List[ParameterOption], *, default_id: Optional[str] = None, 
+    def __init__(self, label: str, options: List[ParameterOption], *, default_id: Optional[str] = None, 
                  is_hidden: bool = False, trigger_refresh: bool = False, parent: Optional[str] = None):
-        super().__init__(WidgetType.SingleSelect, name, label, is_hidden, options, trigger_refresh, parent)
+        super().__init__(WidgetType.SingleSelect, label, is_hidden, options, trigger_refresh, parent)
         self.default_id = self.get_default_with_nullable_id(default_id)
         self.selected_id = self.default_id
         self.verify_selected_id_in_options(self.selected_id)
@@ -190,8 +256,8 @@ class SingleSelectParameter(_SelectionParameter):
             self.default_id = self.get_default_with_nullable_id(default_id)
         self.selected_id = self.default_id
 
-    def to_dict(self):
-        output = super().to_dict()
+    def _to_dict(self, name):
+        output = super()._to_dict(name)
         output['selected_id'] = self.selected_id
         return output
 
@@ -203,9 +269,9 @@ class MultiSelectParameter(_SelectionParameter):
     include_all: bool
     order_matters: bool
 
-    def __init__(self, name: str, label: str, options: List[ParameterOption], *, default_ids: List[str] = [], is_hidden = False,
+    def __init__(self, label: str, options: List[ParameterOption], *, default_ids: List[str] = [], is_hidden = False,
                  trigger_refresh: bool = False, parent: Optional[str] = None, include_all: bool = True, order_matters: bool = False):
-        super().__init__(WidgetType.MultiSelect, name, label, is_hidden, options, trigger_refresh, parent)
+        super().__init__(WidgetType.MultiSelect, label, is_hidden, options, trigger_refresh, parent)
         self.default_ids = default_ids
         self.selected_ids = default_ids
         self.include_all = include_all
@@ -242,8 +308,8 @@ class MultiSelectParameter(_SelectionParameter):
             self.default_ids = list(self.get_cond_default_iterator())
         self.selected_ids = self.default_ids
 
-    def to_dict(self):
-        output = super().to_dict()
+    def _to_dict(self, name):
+        output = super()._to_dict(name)
         output['selected_ids'] = self.selected_ids
         output['include_all'] = self.include_all
         output['order_matters'] = self.order_matters
@@ -251,17 +317,17 @@ class MultiSelectParameter(_SelectionParameter):
 
 
 @dataclass
-class DateParameter(_Parameter):
+class DateParameter(Parameter):
     selected_date: datetime
     format: str
 
-    def __init__(self, name: str, label: str, selected_date: str, *, is_hidden: bool = False, format: str = '%Y-%m-%d'):
-        super().__init__(WidgetType.DateField, name, label, is_hidden)
+    def __init__(self, label: str, selected_date: str, *, is_hidden: bool = False, format: str = '%Y-%m-%d'):
+        super().__init__(WidgetType.DateField, label, is_hidden)
         self.format = format
         try:
             self.selected_date = datetime.strptime(selected_date, format)
         except ValueError:
-            raiseParameterError(name, f'the selected value "{selected_date}" could not be converted to a date')
+            _raiseParameterError(label, f'the selected value "{selected_date}" could not be converted to a date')
     
     def set_selection(self, selection: str):
         self.selected_date = datetime.strptime(selection, self.format)
@@ -272,14 +338,14 @@ class DateParameter(_Parameter):
     def get_selected_date_quoted(self) -> str:
         return "'" + self.get_selected_date() + "'"
     
-    def to_dict(self):
-        output = super().to_dict()
+    def _to_dict(self, name):
+        output = super()._to_dict(name)
         output['selected_date'] = self.get_selected_date()
         return output
 
 
 @dataclass
-class _NumericParameter(_Parameter):
+class _NumericParameter(Parameter):
     min_value: Decimal
     max_value: Decimal
     increment: Decimal
@@ -289,9 +355,9 @@ class _NumericParameter(_Parameter):
         self.max_value = Decimal(self.max_value)
         self.increment = Decimal(self.increment)
         if self.min_value > self.max_value:
-            raiseParameterError(self.name, f'the min_value "{self.min_value}" must be less than the max_value "{self.max_value}"', ValueError)
+            _raiseParameterError(self.label, f'the min_value "{self.min_value}" must be less than the max_value "{self.max_value}"', ValueError)
         if (self.max_value - self.min_value) % self.increment != 0:
-            raiseParameterError(self.name, f'the increment "{self.increment}" must fit evenly between the min_value "{self.min_value}" and max_value "{self.max_value}"', ValueError)
+            _raiseParameterError(self.label, f'the increment "{self.increment}" must fit evenly between the min_value "{self.min_value}" and max_value "{self.max_value}"', ValueError)
 
     def value_in_range(self, value):
         return self.min_value <= value <= self.max_value
@@ -303,12 +369,12 @@ class _NumericParameter(_Parameter):
 
     def validate_value(self, value, min_value=None):
         if not self.value_in_range(value):
-            raiseParameterError(self.name, f'the selected value "{value}" is out of bounds', ValueError)
+            _raiseParameterError(self.label, f'the selected value "{value}" is out of bounds', ValueError)
         if not self.value_on_increment(value, min_value):
-            raiseParameterError(self.name, f'the difference between selected value "{value}" and min_value "{self.min_value}" must be a multiple of increment "{self.increment}"', ValueError)
+            _raiseParameterError(self.label, f'the difference between selected value "{value}" and min_value "{self.min_value}" must be a multiple of increment "{self.increment}"', ValueError)
 
-    def to_dict(self):
-        output = super().to_dict()
+    def _to_dict(self, name):
+        output = super()._to_dict(name)
         output['min_value'] = str(self.min_value)
         output['max_value'] = str(self.max_value)
         output['increment'] = str(self.increment)
@@ -320,9 +386,9 @@ class NumberParameter(_NumericParameter):
     default_value: Decimal
     selected_value: Decimal
 
-    def __init__(self, name: str, label: str, min_value: Union[Decimal, int, str], max_value: Union[Decimal, int, str], 
+    def __init__(self, label: str, min_value: Union[Decimal, int, str], max_value: Union[Decimal, int, str], 
                  increment: Union[Decimal, int, str], default_value: Union[Decimal, int, str], *, is_hidden: bool = False):
-        super().__init__(WidgetType.NumberField, name, label, is_hidden, min_value, max_value, increment)
+        super().__init__(WidgetType.NumberField, label, is_hidden, min_value, max_value, increment)
         self.default_value = Decimal(default_value)
         self.selected_value = self.default_value
         self.validate_value(default_value)
@@ -334,8 +400,8 @@ class NumberParameter(_NumericParameter):
     def get_selected_value(self) -> str:
         return str(self.selected_value)
         
-    def to_dict(self):
-        output = super().to_dict()
+    def _to_dict(self, name):
+        output = super()._to_dict(name)
         output['selected_value'] = self.get_selected_value()
         return output
 
@@ -347,9 +413,9 @@ class RangeParameter(_NumericParameter):
     selected_lower_value: Decimal
     selected_upper_value: Decimal
 
-    def __init__(self, name: str, label: str, min_value: Union[Decimal, int, str], max_value: Union[Decimal, int, str], increment: Union[Decimal, int, str], 
+    def __init__(self, label: str, min_value: Union[Decimal, int, str], max_value: Union[Decimal, int, str], increment: Union[Decimal, int, str], 
                  default_lower_value: Union[Decimal, int, str], default_upper_value: Union[Decimal, int, str], *, is_hidden: bool = False):
-        super().__init__(WidgetType.RangeField, name, label, is_hidden, min_value, max_value, increment)
+        super().__init__(WidgetType.RangeField, label, is_hidden, min_value, max_value, increment)
         self.default_lower_value = Decimal(default_lower_value)
         self.default_upper_value = Decimal(default_upper_value)
         self.selected_lower_value = self.default_lower_value
@@ -372,130 +438,71 @@ class RangeParameter(_NumericParameter):
     def get_selected_upper_value(self) -> str:
         return str(self.selected_upper_value)
 
-    def to_dict(self):
-        output = super().to_dict()
+    def _to_dict(self, name):
+        output = super()._to_dict(name)
         output['selected_lower_value'] = self.get_selected_lower_value()
         output['selected_upper_value'] = self.get_selected_upper_value()
         return output
 
 
 @dataclass
-class DataSourceParameter(_Parameter):
+class DataSourceParameter(Parameter):
     data_source: OptionsDataSource
     trigger_refresh: bool
     parent: Optional[str]
 
-    def __init__(self, widget_type: str, name: str, label: str, data_source: OptionsDataSource, *, 
+    def __init__(self, widget_type: str, label: str, data_source: OptionsDataSource, *, 
                  is_hidden: bool = False, trigger_refresh: bool = False, parent: Optional[str] = None):
-        super().__init__(widget_type, name, label, is_hidden)
+        super().__init__(widget_type, label, is_hidden)
         self.data_source = data_source
         self.trigger_refresh = trigger_refresh
         self.parent = parent
-    
-    def get_data_source(self) -> OptionsDataSource:
-        return self.data_source
 
-    def convert(self, df: pd.DataFrame = None) -> _Parameter:
+    def _convert(self, profile_name: str, df: pd.DataFrame = None) -> Parameter:
         from_sample = (df is not None)
         if not from_sample:
-            conn = DbConnection()
+            conn = DbConnection(profile_name)
             df = conn.get_dataframe_from_query(self.data_source.get_query())
         
-        new_param = None
-        if self.widget_type == WidgetType.SingleSelect or self.widget_type == WidgetType.MultiSelect:
-            id_col = 'id' if from_sample else self.data_source.id_col
-            options_col = 'options' if from_sample else self.data_source.options_col
-            order_by_col = 'ordering' if from_sample else self.data_source.order_by_col
-            default_col = 'is_default' if from_sample else self.data_source.is_default_col
-            parent_id_col = 'parent_id' if from_sample else self.data_source.parent_id_col
-            cond_default_col = 'is_cond_default' if from_sample else self.data_source.is_cond_default_col
-            
-            def get_parent_id(row):
-                if parent_id_col is not None and not pd.isnull(row[parent_id_col]):
-                    return str(row[parent_id_col])
-                else:
-                    return None
-            
-            def is_cond_default(row):
-                if cond_default_col is not None and not pd.isnull(row[cond_default_col]):
-                    return int(row[cond_default_col]) == 1
-                else:
-                    return False
-            
-            df.sort_values(order_by_col, inplace=True)
-            options = [ParameterOption(str(row[id_col]), str(row[options_col]), get_parent_id(row), is_cond_default(row)) for _, row in df.iterrows()]
-            
-            default_ids = []
-            if default_col is not None:
-                df_filtered = df.query(f'{default_col} == 1')
-                default_ids = [str(x) for x in df_filtered[id_col].values.tolist()]
-            
-            if self.widget_type == WidgetType.SingleSelect:
-                default_id = default_ids[0] if len(default_ids) > 0 else None
-                new_param = SingleSelectParameter(self.name, self.label, options, default_id=default_id, is_hidden=self.is_hidden, 
-                                                  trigger_refresh=self.trigger_refresh, parent=self.parent)
-            else:
-                new_param = MultiSelectParameter(self.name, self.label, options, default_ids=default_ids, is_hidden=self.is_hidden, 
-                                                 trigger_refresh=self.trigger_refresh, parent=self.parent)
-        elif self.widget_type in [WidgetType.DateField, WidgetType.NumberField, WidgetType.RangeField]:
-            raiseParameterError(self.name, f'the widget type "{self.widget_type}" is not supported yet', NotImplementedError)
-        else:
-            raiseParameterError(self.name, f'no such widget type "{self.widget_type}"') 
-        
-        return new_param
+        return self.data_source._convert(self, df, from_sample)
     
-    def to_dict(self):
-        output = super().to_dict()
+    def _to_dict(self, name):
+        output = super()._to_dict(name)
         output['data_source'] = self.data_source.__dict__
         return output
 
 
-# Once this is populated by the parameters.py configuration file, it should never change
-_initial_parameters: List[_Parameter] = []
-
-def add_parameters(parameters: List[_Parameter]):
-    for parameter in parameters:
-        _initial_parameters.append(parameter)
-
 class ParameterSet:
-    def __init__(self):
-        self.parameters_dict: OrderedDict[str, _Parameter] = OrderedDict()
-        self.data_source_params: OrderedDict[str, DataSourceParameter] = OrderedDict()
-        for param in _initial_parameters:
-            param_copy = deepcopy(param)
-            self.parameters_dict[param.name] = param_copy
+    def __init__(self, parameters: Dict[str, Parameter]):
+        self._parameters_dict: OrderedDict[str, Parameter] = OrderedDict()
+        self._data_source_params: OrderedDict[str, DataSourceParameter] = OrderedDict()
+        for key, param in parameters.items():
+            self._parameters_dict[key] = param
             if isinstance(param, DataSourceParameter):
-                self.data_source_params[param.name] = param_copy
-            param_copy.refresh(self)
+                self._data_source_params[key] = param
+            param.refresh(self)
 
-    def get_parameter(self, param_name: str):
-        if param_name in self.parameters_dict:
-            return self.parameters_dict[param_name]
+    def get_parameter_by_name(self, param_name: str) -> Parameter:
+        if param_name in self._parameters_dict:
+            return self._parameters_dict[param_name]
         else:
-            raise KeyError(f'No such parameter exists called "{param_name}"')
-    
-    def get_parent_parameter(self, param_name: str) -> _SelectionParameter:
-        param = self.get_parameter(param_name)
-        if hasattr(param, 'parent') and param.parent is not None:
-            parent_param_name = param.parent
-        else:
-            raiseParameterError(param_name, 'it does not have a non-null "parent" attribute... cannot use "get_parent_parameter"')
-        
-        try:
-            return self.get_parameter(parent_param_name)
-        except KeyError:
-            message = f'the options depend on parameter "{parent_param_name}"... so "{parent_param_name}" must be defined beforehand'
-            raiseParameterError(param_name, message)
+            raise KeyError(f'No such parameter exists called "{param_name}" (yet)')
 
-    def convert_datasource_params(self, test_file: str = None):
+    def _convert_datasource_params(self, profile_name: str, test_file: str = None):
         df_all = pd.read_csv(test_file) if test_file is not None else None
-        for key, ds_param in self.data_source_params.items():
+        
+        def convert(item):
+            key, ds_param = item
             df = df_all.query(f'parameter == "{key}"') if df_all is not None else None
-            new_param = ds_param.convert(df)
-            self.parameters_dict[key] = new_param
-            new_param.refresh(self)
-        self.data_source_params.clear()
+            return key, ds_param._convert(profile_name, df)
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            converted_params = list(executor.map(convert, self._data_source_params.items()))
+            for key, parameter in converted_params:
+                self._parameters_dict[key] = parameter
+                parameter.refresh(self)
+        self._data_source_params.clear()
     
-    def to_dict(self):
-        output = {'parameters': [x.to_dict() for x in self.parameters_dict.values() if not x.is_hidden]}
+    def _to_dict(self, debug: bool = False):
+        output = {'parameters': [x._to_dict(key) for key, x in self._parameters_dict.items() if not x.is_hidden or debug]}
         return output

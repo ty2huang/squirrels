@@ -1,5 +1,4 @@
 import sys, time
-global_start = time.time()
 sys.path.append('.')
 
 from squirrels import constants as c, profile_manager as pm
@@ -71,6 +70,7 @@ def main():
 
     run_parser = subparsers.add_parser(c.RUN_CMD, help='Enable all APIs')
     run_parser.add_argument('--no-cache', action='store_true', help='Do not cache any api results')
+    run_parser.add_argument('--debug', action='store_true', help='In debug mode, all "hidden parameters" show in parameters response')
     run_parser.add_argument('--host', type=str, default='127.0.0.1')
     run_parser.add_argument('--port', type=int, default=8000)
     c.timer.add_activity_time('creating argparser', start)
@@ -85,9 +85,9 @@ def main():
         delete_profile(args)
     elif args.command == c.TEST_CMD:
         Renderer(args.dataset, args.cfg, args.data).write_outputs(args.runquery)
-        c.timer.add_activity_time('rendering output', start)
+        c.timer.add_activity_time('all of write_outputs', start)
     elif args.command == c.RUN_CMD:
-        api_server.run(args.no_cache , args)
+        api_server.run(args.no_cache, args.debug, args)
     elif args.command == c.LOAD_MODULES_CMD:
         ml.load_modules()
     elif args.command == c.INIT_CMD:
@@ -95,7 +95,6 @@ def main():
     else:
         raise RuntimeError(f'The squirrels CLI does not support "{args.command}"')
     
-    c.timer.add_activity_time('everything in command_line.py', global_start)
     c.timer.report_times(args.verbose)
 
 
