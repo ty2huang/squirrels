@@ -1,6 +1,4 @@
-from typing import Dict, Callable, Any, TYPE_CHECKING
-
-#if TYPE_CHECKING:
+from typing import Dict, Callable, Any
 from pandas import DataFrame
 from squirrels import Parameter
 

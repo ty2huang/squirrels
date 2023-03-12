@@ -1,4 +1,4 @@
-import sys, time
+import sys, time, pwinput
 sys.path.append('.')
 
 from squirrels import constants as c, profile_manager as pm
@@ -17,10 +17,13 @@ def set_profile(args):
     if args.values:
         dialect, url, user, pw = args.values
     else:
-        dialect = input("Enter sql dialect: ")
+        print("-- suggested PyPI packages for various sql drivers can be found here: " +
+              "https://superset.apache.org/docs/databases/installing-database-drivers/")
+
+        dialect = input("Enter sql dialect + driver: ")
         url = input("Enter connection URL [host:port/database]: ")
         user = input("Enter username: ")
-        pw = input("Enter password: ")
+        pw = pwinput.pwinput("Enter password: ")
     
     profile.set(dialect, url, user, pw)
     

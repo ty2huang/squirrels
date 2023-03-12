@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 from parameter_options import *
 
 # Define time of year parameter class
@@ -20,7 +20,7 @@ class NumPeriodsParameter(sq.NumberParameter):
     
     def refresh(self, all_parameters: sq.ParameterSet):
         super().refresh(all_parameters)
-        time_unit: sq.SingleSelectParameter = all_parameters.get_parameter_by_name(self.parent)
+        time_unit: sq.SingleSelectParameter = all_parameters[self.parent]
         selected_time_unit: TimeUnitParameterOption = time_unit.get_selected()
         self.min_value = selected_time_unit.min_num_periods
         self.max_value = selected_time_unit.max_num_periods
@@ -30,11 +30,11 @@ class NumPeriodsParameter(sq.NumberParameter):
 
 
 # Define parameters
-def main() -> sq.ParameterSet:
-    return sq.ParameterSet({
+def main() -> Dict[str, sq.Parameter]:
+    return {
         'reference_date': sq.DateParameter('Reference Date', get_today()),
         'time_unit':      sq.SingleSelectParameter('Time Unit', time_unit_options, trigger_refresh=True),
         'num_periods':    NumPeriodsParameter('Number of Time Units'),
         'time_of_year':   TimeOfYearParameter('Time of Year', time_of_year_options, parent='time_unit'),
         'ticker':         sq.DataSourceParameter(sq.WidgetType.MultiSelect, 'Ticker', ticker_data_source)
-    })
+    }

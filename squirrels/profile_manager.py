@@ -2,18 +2,25 @@ import os
 from configparser import ConfigParser
 from squirrels import constants as c
 
-_PROFILE_FILE = os.path.join(os.path.expanduser('~'), '.squirrels_profiles.ini')
+_PROFILE_FILE = os.path.join(os.path.expanduser('~'), '.squirrelscfg')
 
-def _get_config(section_name_to_include=None):
+def _get_config():
     config = ConfigParser()
     config.read(_PROFILE_FILE)
-    if section_name_to_include != None and not config.has_section(section_name_to_include):
-        config.add_section(section_name_to_include)
     return config
+
+def _get_profile_config_as_dict(config: ConfigParser, profile: str):
+    try:
+        config_dict = dict(config[profile])
+    except KeyError as e:
+        raise ValueError(f'Profile "{profile}" (specified in manifest file) has not been configured. To configure, use CLI: "squirrels set-profile {profile}"') 
+    pw = config_dict[c.PASSWORD]
+    config_dict[c.PASSWORD] = '*'*len(pw)
+    return config_dict
 
 def get_profiles():
     config = _get_config()
-    return {section: dict(config[section]) for section in config.sections()}
+    return {section: _get_profile_config_as_dict(config, section) for section in config.sections()}
 
 class Profile:
     def __init__(self, name):
@@ -26,7 +33,10 @@ class Profile:
             c.USERNAME: username,
             c.PASSWORD: password
         }
-        config = _get_config(self.name)
+        config = _get_config()
+        if not config.has_section(self.name):
+            config.add_section(self.name)
+        
         for k, v in settings.items():
             config.set(self.name, k, v)
         
@@ -34,8 +44,8 @@ class Profile:
             config.write(f)
 
     def get(self):
-        config = _get_config(self.name)
-        return dict(config[self.name])
+        config = _get_config()
+        return _get_profile_config_as_dict(config, self.name)
 
     def delete(self):
         config = _get_config()

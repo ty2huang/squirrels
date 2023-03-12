@@ -194,7 +194,7 @@ class _SelectionParameter(Parameter):
     def refresh(self, parameters: ParameterSet):
         super().refresh(parameters)
         if self.parent is not None:
-            parent_param: _SelectionParameter = parameters.get_parameter_by_name(self.parent)
+            parent_param: _SelectionParameter = parameters[self.parent]
             self.selected_parent_ids = set(parent_param.get_selected_ids_as_list())
             self.options = [x for x in self.all_options if x.parent_id in self.selected_parent_ids]
 
@@ -487,6 +487,9 @@ class ParameterSet:
             return self._parameters_dict[param_name]
         else:
             raise KeyError(f'No such parameter exists called "{param_name}" (yet)')
+    
+    def __getitem__(self, param_name: str) -> Parameter:
+        return self.get_parameter_by_name(param_name)
 
     def _convert_datasource_params(self, profile_name: str, test_file: str = None):
         df_all = pd.read_csv(test_file) if test_file is not None else None

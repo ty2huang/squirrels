@@ -1,5 +1,5 @@
 import json, os
-from typing import Dict, List, FrozenSet, Tuple, TYPE_CHECKING
+from typing import Dict, List, FrozenSet, Tuple
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -8,9 +8,6 @@ from cachetools.func import ttl_cache
 
 from squirrels import major_version, constants as c, context
 from squirrels.renderer import Renderer
-
-#if TYPE_CHECKING:
-from squirrels.parameter_configs import ParameterSet
 
 debug = False
 
@@ -22,7 +19,7 @@ def normalize_name_for_api(name: str):
     return name.replace('_', '-')
 
 
-def load_selected_parameters(renderer: Renderer, query_params: FrozenSet[Tuple[str, str]]) -> ParameterSet:
+def load_selected_parameters(renderer: Renderer, query_params: FrozenSet[Tuple[str, str]]): # -> ParameterSet:
     parameters = renderer.parameters
     query_params_dict = dict(query_params)
     for name, parameter in parameters._parameters_dict.items():

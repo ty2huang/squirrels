@@ -1,6 +1,6 @@
 import os, json, time, copy
 import concurrent.futures
-from typing import Dict, Tuple, List, Union, Any, TYPE_CHECKING
+from typing import Dict, Tuple, List, Union, Any
 from importlib.machinery import SourceFileLoader
 from configparser import ConfigParser
 from pathlib import Path
@@ -14,11 +14,9 @@ c.timer.add_activity_time(c.IMPORT_JINJA, start)
 
 start = time.time()
 from pandasql import sqldf
-# if TYPE_CHECKING:
 from pandas import DataFrame
 c.timer.add_activity_time(c.IMPORT_PANDAS, start)
 
-# if TYPE_CHECKING:
 from squirrels.parameter_configs import ParameterSet
 
 
@@ -37,7 +35,7 @@ def get_file_path(relative_folder: str, filename: str):
 def load_parameters(input_folder: str, dataset: str, lu_data: str) -> ParameterSet:
     module_path = get_file_path(input_folder, c.PARAMETERS_MODULE+'.py')
     module = SourceFileLoader(c.PARAMETERS_MODULE, module_path).load_module()
-    parameters: ParameterSet = module.main()
+    parameters = ParameterSet(module.main())
     lu_data_path = get_file_path(input_folder, lu_data)
     db_profile_name = ctx.get_db_profile_name(dataset)
     parameters._convert_datasource_params(db_profile_name, lu_data_path)

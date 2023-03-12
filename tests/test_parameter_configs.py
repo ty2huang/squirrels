@@ -5,7 +5,7 @@ param_module = importlib.import_module("datasets.stock_price_history.parameters"
 
 
 def test_parameters_to_dict():
-    parameters = param_module.main()
+    parameters = ParameterSet(param_module.main())
 
     name = 'reference_date'
     reference_date_dict = {
@@ -82,7 +82,7 @@ def test_parameters_to_dict():
 
 
 def test_convert_datasource_params():
-    parameters = param_module.main()
+    parameters = ParameterSet(param_module.main())
     parameters._convert_datasource_params('product_profile')
 
     ticker_dict = {
@@ -104,7 +104,7 @@ def test_convert_datasource_params():
 
 
 def test_refresh():
-    parameters = param_module.main()
+    parameters = ParameterSet(param_module.main())
     parent_parm: SingleSelectParameter = parameters.get_parameter_by_name('time_unit')
     parent_parm.set_selection('3')
     time_of_year_parm: MultiSelectParameter = parameters.get_parameter_by_name('time_of_year')
