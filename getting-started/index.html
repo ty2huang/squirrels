@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://ty2huang.github.io/squirrels-docs/getting-started/" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Getting Started - Squirrels Documentation</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.5.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Getting Started";
+        var mkdocs_page_input_path = "getting-started.md";
+        var mkdocs_page_url = "/squirrels-docs/getting-started/";
+      </script>
+    
+    <script src="../js/jquery-3.6.0.min.js" defer></script>
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.5.0/highlight.min.js"></script>
+      <script>hljs.initHighlightingOnLoad();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> Squirrels Documentation
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="./">Getting Started</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#initialize-a-new-project">Initialize a New Project</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#provide-the-database-connection">Provide the Database Connection</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#configure-a-dataset">Configure a Dataset</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#create-the-parameters">Create the Parameters</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#create-the-dynamic-sql-queries">Create the Dynamic SQL Queries</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#test-the-generated-output">Test the Generated Output</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#run-the-api-server">Run the API Server</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../core-concepts/">Core Concepts</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">CLI Commands</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../cli-guide/init/">init</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../cli-guide/set-profile/">set-profile</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../cli-guide/get-all-profiles/">get-all-profiles</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../cli-guide/delete-profile/">delete-profile</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../cli-guide/load-modules/">load-modules</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../cli-guide/test/">test</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../cli-guide/run/">run</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Project Files</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../user-guide/squirrels-manifest/">squirrels.yaml</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../user-guide/parameters/">parameters.py</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../user-guide/context/">context.py</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../user-guide/database-views/">database views</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../user-guide/final-view/">final view</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../user-guide/selections/">selections.cfg</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../user-guide/sample-lu-data/">sample_lu_data.xlsx</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">Squirrels Documentation</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" alt="Docs"></a> &raquo;</li>
+      <li>Getting Started</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="getting-started-with-squirrels">Getting Started with Squirrels</h1>
+<p>An introductory tutorial!</p>
+<hr />
+<h2 id="installation">Installation</h2>
+<p>First, in the folder for your squirrels project, create the virtual environment. For example, you can use <code>pipenv</code> (install with <code>pip install pipenv</code>) to create the virtual environment, and install the squirrels library in one command:</p>
+<pre><code class="language-bash">pipenv install squirrels
+</code></pre>
+<p>Activate the virtual environment with:</p>
+<pre><code class="language-bash">pipenv shell
+</code></pre>
+<p>and deactivate with <code>exit</code>.</p>
+<h2 id="initialize-a-new-project">Initialize a New Project</h2>
+<p>You can initialize the project files using:</p>
+<pre><code class="language-bash">squirrels init --core --sample-db seattle-weather
+</code></pre>
+<p>For the purpose of this tutorial, we are using the <code>--sample-db</code> option to create a sample database to use. All the core files are also created using the <code>--core</code> option. </p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Without using any CLI options (i.e., just <code>squirrels init</code>), a set of prompts will be provided instead for the file(s) you need, and the core files would be created by default. However, the prompts go away by specifying any CLI options, and the core files are not created by default if the <code>--core</code> option is not included.</p>
+</div>
+<p>Once the command is executed, all core files are created. This includes:</p>
+<ul>
+<li><code>.gitignore</code>, <code>requirements.txt</code>, and <code>squirrels.yaml</code> at the project root</li>
+<li><code>parameters.py</code> and <code>database_view.sql.j2</code> in the <code>datasets/sample_dataset</code> subfolder</li>
+<li><code>seattle_weather.db</code> sqlite database in the <code>database</code> folder</li>
+</ul>
+<p>For more details, see docs for the <a href="../cli-guide/init/">init CLI</a>.</p>
+<h2 id="provide-the-database-connection">Provide the Database Connection</h2>
+<p>Next, create a squirrels database profile with a specified profile name of your choice. For the rest of the tutorial, we will assume the profile name is <code>myprofile</code>.</p>
+<pre><code class="language-bash">squirrels set-profile myprofile --values sqlite /./database/seattle_weather.db &quot;&quot; &quot;&quot;
+</code></pre>
+<p>The <code>--values</code> option let you specify the sql dialect/driver, database url, username, and password in the command line all at once instead of using the set of prompts.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>It is better practice to use an absolute path in the database url for the sqlite database. We are using a relative path to <code>seattle_weather.db</code> here for simplicity.</p>
+</div>
+<p>In the <code>squirrels.yaml</code> file, set the <code>db_profile</code> to <code>myprofile</code>.</p>
+<p>For more details on database profiles, see docs for the <a href="../cli-guide/set-profile/">set-profile CLI</a>.</p>
+<h2 id="configure-a-dataset">Configure a Dataset</h2>
+<p>In the <code>squirrels.yaml</code> file, set the <code>product</code> property under <code>project_variables</code> to <code>seattle_weather</code>.</p>
+<p>Replace the <code>sample_dataset</code> field (under <code>datasets</code>) with <code>weather_by_time</code>. Specify the following values under the <code>weather_by_time</code> field:</p>
+<ul>
+<li>Set <code>label</code> to <code>Weather by Time of Year</code></li>
+<li>Set <code>name</code> (under <code>database_views</code>) to <code>weather_by_time</code></li>
+<li>Set <code>file</code> (under <code>database_views</code>) to <code>weather_by_time.sql.j2</code></li>
+<li>Set <code>final_view</code> to <code>final_view.sql.j2</code></li>
+</ul>
+<p>At this point in time, your <code>squirrels.yaml</code> file should look something like this:</p>
+<pre><code class="language-yaml">project_variables:
+  product: seattle_weather
+  major_version: '0'
+  minor_version: '1'
+
+modules: []
+
+db_profile: myprofile
+
+base_path: &quot;/{{product}}/v{{major_version}}&quot;
+
+datasets:
+  weather_by_time:
+    label: Weather by Time of Year
+    database_views:
+    - name: weather_by_time
+      file: weather_by_time.sql.j2
+    final_view: weather_by_time
+
+settings: {}
+</code></pre>
+<p>Rename the following files/folders to reflect the changes you made in the <code>squirrels.yaml</code> file.</p>
+<ul>
+<li>Rename <code>datasets/sample_dataset</code> to <code>datasets/weather_by_time</code></li>
+<li>Rename <code>datasets/weather_by_time/database_view1.sql.j2</code> to <code>datasets/weather_by_time/weather_by_time.sql.j2</code></li>
+</ul>
+<p>For more details on the <code>squirrels.yaml</code> file, see the docs for <a href="../user-guide/squirrels-manifest/">squirrels.yaml</a>.</p>
+<h2 id="create-the-parameters">Create the Parameters</h2>
+<p>In the <code>datasets/weather_by_time/</code> folder, there's a <code>parameters.py</code> file to specify the parameters for the <code>weather_by_time</code> dataset. Replace the contents of the <code>parameters.py</code> file with the following.</p>
+<pre><code class="language-python">from typing import Callable
+import squirrels as sq
+
+class GroupByOption(sq.ParameterOption):
+    def __init__(self, id, label, dim_col, order_by_col = None):
+        super().__init__(id, label)
+        self.dim_col = dim_col
+        self.order_by_col = order_by_col if order_by_col is not None else dim_col
+
+group_by_options = [
+    GroupByOption('0', 'Year', 'year'),
+    GroupByOption('1', 'Quarter', 'quarter'),
+    GroupByOption('2', 'Month', 'month_name', 'month_order'),
+    GroupByOption('3', 'Day of Year', 'day_of_year'),
+    GroupByOption('4', 'Condition', 'condition')
+]
+
+def main() -&gt; Dict[str, sq.Parameter]:
+    return {
+        'group_by': sq.SingleSelectParameter('Group By', group_by_options),
+    }
+</code></pre>
+<p>Classes like <code>ParameterOption</code>, <code>Parameter</code>, and <code>SingleSelectParameter</code> are provided by the squirrels framework. In the code above, we extend from the existing <code>ParameterOption</code> class to create our own class with additional attributes. We will be able to use these attributes in the sql query templates we define later. The <code>parameters.py</code> file must specify a <code>main()</code> function that returns a dictionary of parameter names (as keys) to parameter objects (as value). In the code above, we specified one single-select parameter called <code>group_by</code> which will affect the dimension column used for aggregating in the sql query.</p>
+<p>For more details on the available classes for parameter configurations, see docs for <a href="../user-guide/parameters/">parameters.py</a>.</p>
+<h2 id="create-the-dynamic-sql-queries">Create the Dynamic SQL Queries</h2>
+<p>In the <code>datasets/weather_by_time/</code> folder, replace the contents of the <code>weather_by_time.sql.j2</code> file with the following.</p>
+<pre><code class="language-sql">{% set selected_group_by = prms('group_by').get_selected() -%}
+{% set dim_col = selected_group_by.dim_col -%}
+{% set order_col = selected_group_by.order_by_col -%}
+
+SELECT {{ dim_col }}
+    , avg(temp_max) as temperature_high_C
+    , avg(temp_min) as temperature_low_C
+    , avg(precipitation) as precipitation_inches
+    , avg(wind) as wind_mph
+FROM weather
+GROUP BY {{ dim_col }}, {{ order_col }}
+ORDER BY {{ order_col }}
+</code></pre>
+<p>The lines written like <code>{% set ... -%}</code> uses Jinja2 syntax to create variables for the templated sql to use. The <code>prms</code> function is available to retrieve a Parameter object, and for SingleSelectParameter's, the <code>.get_selected()</code> method is available to retrieve the selected ParameterOption, which we extended as a GroupByOption. Thus, the <code>dim_col</code> and <code>order_by_col</code> attributes are available on the GroupByOption.</p>
+<p>The database view file can also be a python file. For more details, see the docs for <a href="../user-guide/database-views/">database views</a>.</p>
+<p>Note that this example only uses one "database view", and the "final view" does not apply any further transformations. For more complex use cases, you can also write Jinja2 templated sql or python files for the final view as well to process on the API server from the results of one or more database views. For more details, see the docs for <a href="../user-guide/final-view/">final view</a>.</p>
+<p>In addition, this framework also lets you define the <code>dim_col</code> and <code>order_col</code> variables through python instead of through the Jinja template. For more details, see the docs for <a href="../user-guide/context/">context.py</a>.</p>
+<h2 id="test-the-generated-output">Test the Generated Output</h2>
+<p>You can test the output of the generated SQL query and parameters response for the default parameter selections of the <code>weather_by_time</code> dataset by running:</p>
+<pre><code class="language-bash">squirrels test weather_by_time
+</code></pre>
+<p>This creates a <code>outputs/weather_by_time</code> subfolder with the generated SQL query without running it yet. Confirm all outputs look as expected. You can also run the following to generate all database views and final view results as csv files.</p>
+<pre><code class="language-bash">squirrels test weather_by_time --runquery
+</code></pre>
+<p>You can also test on non-default parameter selections. For more details, see docs for the <a href="../cli-guide/test/">test CLI</a>.</p>
+<h2 id="run-the-api-server">Run the API Server</h2>
+<p>Run the following CLI command to activate the API server in "debug mode":</p>
+<pre><code class="language-bash">squirrels run --debug
+</code></pre>
+<p>You should now be able to access the following APIs.</p>
+<ul>
+<li>http://localhost:8000/squirrels0/seattle-weather/v0<ul>
+<li>Catalog of the parameters and results APIs for each dataset</li>
+</ul>
+</li>
+<li>http://localhost:8000/squirrels0/seattle-weather/v0/weather-by-time/parameters<ul>
+<li>All the parameters information for the dataset</li>
+</ul>
+</li>
+<li>http://localhost:8000/squirrels0/seattle-weather/v0/weather-by-time<ul>
+<li>The results of the dataset using the default value for each parameter</li>
+</ul>
+</li>
+</ul>
+<p>For a simple UI to test the API interactions, go to <code>http://localhost:8000/</code> from your browser.</p>
+<p>For more details, see docs for the <a href="../cli-guide/run/">run CLI</a>.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href=".." class="btn btn-neutral float-left" title="Home"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../core-concepts/" class="btn btn-neutral float-right" title="Core Concepts">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href=".." style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../core-concepts/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script>var base_url = '..';</script>
+    <script src="../js/theme_extra.js" defer></script>
+    <script src="../js/theme.js" defer></script>
+      <script src="../search/main.js" defer></script>
+    <script defer>
+        window.onload = function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        };
+    </script>
+
+</body>
+</html>
