@@ -1,9 +1,9 @@
 import sys, os
-from squirrels import context, profile_manager as pm, constants as c
+from squirrels import profile_manager as pm, manifest as mf, constants as c
 
 
 def pytest_sessionstart(session):
     sys.path.append('sample_project')
-    context.initialize('sample_project/manifest.yaml')
-    database_path = os.path.abspath('./data/test.db')
+    mf.initialize('sample_project/squirrels.yaml')
+    database_path = os.path.abspath('./database/test.db')
     pm.Profile('product_profile').set('sqlite', f'/{database_path}', '', '')

@@ -1,4 +1,6 @@
 *sandbox.*
+playground/
+site/
 
 # Pipenv files
 Pipfile

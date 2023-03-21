@@ -6,7 +6,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from cachetools.func import ttl_cache
 
-from squirrels import major_version, constants as c, context
+from squirrels import major_version, constants as c, manifest as mf
 from squirrels.renderer import Renderer
 
 debug = False
@@ -34,7 +34,7 @@ def load_dataframe(renderer: Renderer):
     renderer.set_job_context()
     sql_by_view_name = renderer.get_rendered_sql_by_view()
     
-    dataset_context = context.get_dataset_parms(renderer.dataset)
+    dataset_context = mf.get_dataset_parms(renderer.dataset)
     final_view_name = dataset_context[c.FINAL_VIEW_KEY]
     final_view_sql_str = renderer.get_final_view_sql_str(final_view_name, sql_by_view_name)
     
@@ -69,9 +69,9 @@ def run(no_cache: bool, debug_value: bool, uvicorn_args: List[str]):
 
     app = FastAPI()
 
-    context.initialize(c.MANIFEST_FILE)
+    mf.initialize(c.MANIFEST_FILE)
     squirrels_version_path = f'/squirrels{major_version}'
-    config_base_path = normalize_name_for_api(context.parms[c.BASE_PATH_KEY])
+    config_base_path = normalize_name_for_api(mf.parms[c.BASE_PATH_KEY])
     base_path = squirrels_version_path + config_base_path
 
     static_dir = os.path.join(os.path.dirname(__file__), 'static')
@@ -82,9 +82,11 @@ def run(no_cache: bool, debug_value: bool, uvicorn_args: List[str]):
 
     # Parameters API
     parameters_path = '/{dataset}/parameters'
-    # TODO: create setting for ttl cache time seconds
+    
+    parameters_cache_size = mf.get_setting(c.PARAMETERS_CACHE_SIZE_SETTING, 1024)
+    parameters_cache_ttl = mf.get_setting(c.PARAMETERS_CACHE_TTL_SETTING, 24*60*60)
 
-    @ttl_cache(maxsize=context.get_setting(c.PARAMETERS_CACHESIZE_SETTING, 1024))
+    @ttl_cache(maxsize=parameters_cache_size, ttl=parameters_cache_ttl)
     def get_parameters_cachable(*args):
         return get_parameters_helper(*args)
     
@@ -96,7 +98,10 @@ def run(no_cache: bool, debug_value: bool, uvicorn_args: List[str]):
     # Results API
     results_path = '/{dataset}'
 
-    @ttl_cache(maxsize=context.get_setting(c.RESULTS_CACHESIZE_SETTING, 128))
+    results_cache_size = mf.get_setting(c.RESULTS_CACHE_SIZE_SETTING, 128)
+    results_cache_ttl = mf.get_setting(c.RESULTS_CACHE_TTL_SETTING, 60*60)
+
+    @ttl_cache(maxsize=results_cache_size, ttl=results_cache_ttl)
     def get_results_cachable(*args):
         return get_results_helper(*args)
     
@@ -108,7 +113,7 @@ def run(no_cache: bool, debug_value: bool, uvicorn_args: List[str]):
     # Catalog API
     @app.get(base_path, response_class=JSONResponse)
     async def get_catalog():
-        all_dataset_contexts: Dict = context.parms[c.DATASETS_KEY]
+        all_dataset_contexts: Dict = mf.parms[c.DATASETS_KEY]
         datasets = []
         for dataset, dataset_context in all_dataset_contexts.items():
             dataset_normalized = normalize_name_for_api(dataset)
@@ -118,7 +123,7 @@ def run(no_cache: bool, debug_value: bool, uvicorn_args: List[str]):
                 'parameters_path': base_path + parameters_path.format(dataset=dataset_normalized),
                 'result_path': base_path + results_path.format(dataset=dataset_normalized)
             })
-        return {'project_variables': context.parms[c.PROJ_VARS_KEY], 'resource_paths': datasets}
+        return {'project_variables': mf.parms[c.PROJ_VARS_KEY], 'resource_paths': datasets}
     
     # Squirrels UI
     @app.get('/', response_class=HTMLResponse)

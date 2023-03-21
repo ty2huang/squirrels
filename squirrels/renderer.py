@@ -5,7 +5,7 @@ from importlib.machinery import SourceFileLoader
 from configparser import ConfigParser
 from pathlib import Path
 from functools import lru_cache
-from squirrels import constants as c, context as ctx
+from squirrels import constants as c, manifest as mf
 from squirrels.db_conn import DbConnection
 
 start = time.time()
@@ -31,34 +31,43 @@ def get_file_path(relative_folder: str, filename: str):
     return str(filepath) if filepath is not None else None
 
 
+def run_module_main(input_folder: str, py_file: str, main_args: Dict[str, Any] = {}) -> Any:
+    module_path = get_file_path(input_folder, py_file)
+    module = SourceFileLoader(py_file, module_path).load_module()
+    return module.main(**main_args)
+
+
 @lru_cache(maxsize=None)
-def load_parameters(input_folder: str, dataset: str, lu_data: str) -> ParameterSet:
-    module_path = get_file_path(input_folder, c.PARAMETERS_MODULE+'.py')
-    module = SourceFileLoader(c.PARAMETERS_MODULE, module_path).load_module()
-    parameters = ParameterSet(module.main())
+def load_parameters_helper(input_folder: str, dataset: str, lu_data: str) -> ParameterSet:
     lu_data_path = get_file_path(input_folder, lu_data)
-    db_profile_name = ctx.get_db_profile_name(dataset)
+    db_profile_name = mf.get_db_profile_name(dataset) if lu_data is None else None
+    parameters = ParameterSet(run_module_main(input_folder, c.PARAMETERS_FILE))
     parameters._convert_datasource_params(db_profile_name, lu_data_path)
     return parameters
+
+def load_parameters(input_folder: str, dataset: str, lu_data: str) -> ParameterSet:
+    return copy.deepcopy(load_parameters_helper(input_folder, dataset, lu_data))
 
 
 class Renderer:
     def __init__(self, dataset, selection_cfg: str = None, lu_data: str = None) -> None:
         # Dynamically import the parameters.py configuration file and convert all datasources parameters
         start = time.time()
-        ctx.initialize(c.MANIFEST_FILE)
+        mf.initialize(c.MANIFEST_FILE)
         self.dataset = dataset
         self.input_folder = join_paths(c.DATASETS_FOLDER, dataset)
         self.selection_cfg = get_file_path(self.input_folder, selection_cfg)
-        self.parameters = copy.deepcopy(load_parameters(self.input_folder, dataset, lu_data))
+        self.parameters = load_parameters(self.input_folder, dataset, lu_data)
         self.job_context = {}
         c.timer.add_activity_time('initialize Renderer', start)
 
+    
+    def get_main_args1(self):
+        return {'prms': self.parameters.get_parameter_by_name, 'proj': self.get_project_var}
+
     def set_job_context(self) -> Dict[str, Any]:
         try:
-            module_path = get_file_path(self.input_folder, 'context.py')
-            module = SourceFileLoader('job_context', module_path).load_module()
-            self.job_context = module.main(self.parameters.get_parameter_by_name)
+            self.job_context = run_module_main(self.input_folder, c.CONTEXT_FILE, self.get_main_args1())
         except FileNotFoundError:
             pass
         
@@ -66,14 +75,18 @@ class Renderer:
         return self.job_context[name]
     
     def get_project_var(self, name: str):
-        return ctx.parms[c.PROJ_VARS_KEY][name]
+        return mf.parms[c.PROJ_VARS_KEY][name]
+    
+    def get_main_args2(self):
+        main_args = self.get_main_args1()
+        main_args['ctx'] = self.get_job_context_by_name
+        return main_args
     
     
     def run_final_view_from_python(self, py_file: str, database_views: Dict[str, DataFrame]) -> DataFrame:
-        module_path = get_file_path(self.input_folder, py_file)
-        module = SourceFileLoader('final_view', module_path).load_module()
-        return module.main(database_views, self.parameters.get_parameter_by_name, 
-                           self.get_job_context_by_name, self.get_project_var)
+        main_args = self.get_main_args2()
+        main_args['database_views'] = database_views
+        return run_module_main(self.input_folder, py_file, main_args)
 
     
     def render_view(self, view_file: str) -> str:
@@ -88,22 +101,29 @@ class Renderer:
     
 
     def get_rendered_sql_by_view(self) -> Dict[str, str]:
-        dataset_parms = ctx.parms[c.DATASETS_KEY][self.dataset]
-        bigdata_sql = dataset_parms[c.DATABASE_VIEWS_KEY]
+        dataset_parms = mf.parms[c.DATASETS_KEY][self.dataset]
+        bigdata_sql: List[Dict[str, str]] = dataset_parms[c.DATABASE_VIEWS_KEY]
         
         output = {}
         for element in bigdata_sql:
             view_name, view_file = element[c.DB_VIEW_NAME_KEY], element[c.DB_VIEW_FILE_KEY]
-            input_path = get_file_path(self.input_folder, view_file)
-            output[view_name] = self.render_view(input_path)
+            if view_file.endswith('.py'):
+                output[view_name] = view_file
+            else:
+                input_path = get_file_path(self.input_folder, view_file)
+                output[view_name] = self.render_view(input_path)
         return output
 
 
-    def get_all_results(self, sql_by_view_name: str, final_view_name: str, final_view_sql_str: str = None) -> Tuple[Dict[str, DataFrame], DataFrame]:
-        conn = DbConnection(ctx.get_db_profile_name(self.dataset))
-        def run_single_query(item) -> Dict[str, DataFrame]:
+    def get_all_results(self, sql_by_view_name: Dict[str, str], final_view_name: str, final_view_sql_str: str = None) -> Tuple[Dict[str, DataFrame], DataFrame]:
+        conn = DbConnection(mf.get_db_profile_name(self.dataset))
+        
+        def run_single_query(item: Tuple[str, str]) -> Tuple[str, DataFrame]:
             view_name, query = item
-            return view_name, conn.get_dataframe_from_query(query)
+            if query.endswith('.py'):
+                return view_name, run_module_main(self.input_folder, query, self.get_main_args2())
+            else:
+                return view_name, conn.get_dataframe_from_query(query)
         
         start = time.time()
         with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -167,16 +187,17 @@ class Renderer:
         
         # Render and write the sql queries
         start = time.time()
-        dataset_parms = ctx.parms[c.DATASETS_KEY][self.dataset]
+        dataset_parms = mf.parms[c.DATASETS_KEY][self.dataset]
         
-        def write_sql_file(view_name, sql_str):
-            sql_file = join_paths(output_folder, view_name+'.sql')
-            with open(sql_file, 'w') as f:
-                f.write(sql_str)
+        def write_sql_file(view_name: str, sql_str: str):
+            if not sql_str.endswith('.py'):
+                sql_file = join_paths(output_folder, view_name+'.sql')
+                with open(sql_file, 'w') as f:
+                    f.write(sql_str)
         
         sql_by_view_name = self.get_rendered_sql_by_view()
-        for view_name, final_view_sql_str in sql_by_view_name.items():
-            write_sql_file(view_name, final_view_sql_str)
+        for view_name, db_view_sql_str in sql_by_view_name.items():
+            write_sql_file(view_name, db_view_sql_str)
 
         final_view_name = dataset_parms[c.FINAL_VIEW_KEY]
         final_view_sql_str = self.get_final_view_sql_str(final_view_name, sql_by_view_name)

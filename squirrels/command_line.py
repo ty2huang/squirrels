@@ -1,9 +1,11 @@
-import sys, time, pwinput
+import sys, time
 sys.path.append('.')
 
-from squirrels import constants as c, profile_manager as pm
+import pwinput
+from squirrels import constants as c, profile_manager as pm, __version__
 from squirrels import module_loader as ml, api_server
 from squirrels.renderer import Renderer
+from squirrels.initializer import Initializer
 from argparse import ArgumentParser
 
 
@@ -39,22 +41,25 @@ def delete_profile(args):
         print(f"Profile '{args.name}' does not exist")
 
 
-def init_project():
-    raise NotImplementedError()
-
-
 def main():
     start = time.time()
     parser = ArgumentParser(description="Command line utilities from the squirrels python package")
-    parser.add_argument('-v', '--verbose', action='store_true', help='Show all log messages')
-    subparsers = parser.add_subparsers(title='commands', dest='command', required=True)
+    parser.add_argument('-V', '--version', action='store_true', help='Show the version and exit')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose output')
+    subparsers = parser.add_subparsers(title='commands', dest='command')
 
     def _add_profile_argument(parser):
-        parser.add_argument('name', type=str, help='Name of the database connection profile (as written in manifest.json)')
+        parser.add_argument('name', type=str, help='Name of the database connection profile (provided in squirrels.yaml)')
 
-    subparsers.add_parser(c.INIT_CMD, help='Initialize a squirrels project')
+    init_parser = subparsers.add_parser(c.INIT_CMD, help='Initialize a squirrels project')
+    init_parser.add_argument('--overwrite', action='store_true', help='Overwrite files if already exist')
+    init_parser.add_argument('--core', action='store_true', help='Include all core files')
+    init_parser.add_argument('--context', action='store_true', help=f'Include the {c.CONTEXT_FILE} file')
+    init_parser.add_argument('--db-view', type=str, choices=['sql', 'py'], help='Create database view as sql (default) or python file')
+    init_parser.add_argument('--final-view', type=str, choices=['sql', 'py'], help='Include final view as sql or python file')
+    init_parser.add_argument('--sample-db', type=str, choices=['seattle-weather'], help='Sample sqlite database to include')
 
-    subparsers.add_parser(c.LOAD_MODULES_CMD, help='Load all the modules specified in manifest.json from git')
+    subparsers.add_parser(c.LOAD_MODULES_CMD, help='Load all the modules specified in squirrels.yaml from git')
 
     subparsers.add_parser(c.GET_PROFILES_CMD, help='Get all database connection profile names and values')
 
@@ -65,13 +70,13 @@ def main():
     delete_profile_parser = subparsers.add_parser(c.DELETE_PROFILE_CMD, help='Delete a database connection profile')
     _add_profile_argument(delete_profile_parser)
 
-    test_parser = subparsers.add_parser(c.TEST_CMD, help='For a given dataset, create or compare expected results of parameters response and rendered sql queries')
-    test_parser.add_argument('dataset', type=str, help='Name of dataset (as written in manifest.json) to test, and results are written in an "outputs" folder, or if this is not specified, unit testing on the "tests" folder is done instead')
+    test_parser = subparsers.add_parser(c.TEST_CMD, help='For a given dataset, create outputs for parameter API response and rendered sql queries')
+    test_parser.add_argument('dataset', type=str, help='Name of dataset (provided in squirrels.yaml) to test. Results are written in an "outputs" folder')
     test_parser.add_argument('-c', '--cfg', type=str, help='Configuration file for parameter selections. Path is relative to a specific dataset folder')
     test_parser.add_argument('-d', '--data', type=str, help='Sample lookup data to avoid making a database connection. Path is relative to a specific dataset folder')
     test_parser.add_argument('-r', '--runquery', action='store_true', help='Runs all database queries and final view, and produce the results as csv files')
 
-    run_parser = subparsers.add_parser(c.RUN_CMD, help='Enable all APIs')
+    run_parser = subparsers.add_parser(c.RUN_CMD, help='Run the builtin API server')
     run_parser.add_argument('--no-cache', action='store_true', help='Do not cache any api results')
     run_parser.add_argument('--debug', action='store_true', help='In debug mode, all "hidden parameters" show in parameters response')
     run_parser.add_argument('--host', type=str, default='127.0.0.1')
@@ -79,8 +84,10 @@ def main():
     c.timer.add_activity_time('creating argparser', start)
 
     start = time.time()
-    args, unknown_args = parser.parse_known_args()
-    if args.command == c.GET_PROFILES_CMD:
+    args, _ = parser.parse_known_args()
+    if args.version:
+        print(__version__)
+    elif args.command == c.GET_PROFILES_CMD:
         get_profiles()
     elif args.command == c.SET_PROFILE_CMD:
         set_profile(args)
@@ -94,9 +101,11 @@ def main():
     elif args.command == c.LOAD_MODULES_CMD:
         ml.load_modules()
     elif args.command == c.INIT_CMD:
-        init_project()
+        Initializer(args.overwrite).init_project(args)
+    elif args.command is None:
+        print(f'Error: Missing command. Enter "squirrels -h" for help.')
     else:
-        raise RuntimeError(f'The squirrels CLI does not support "{args.command}"')
+        print(f'Error: No such command "{args.command}". Enter "squirrels -h" for help.')
     
     c.timer.report_times(args.verbose)
 

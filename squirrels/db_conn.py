@@ -12,8 +12,11 @@ c.timer.add_activity_time(c.IMPORT_PANDAS, start)
 
 class DbConnection:
     def __init__(self, profile_name: str):
-        profile = pm.Profile(profile_name).get()
-        self.engine = create_engine(f'{profile[c.DIALECT]}://{profile[c.USERNAME]}:{profile[c.PASSWORD]}@{profile[c.CONN_URL]}')
+        if profile_name is not None and profile_name != '':
+            profile = pm.Profile(profile_name).get()
+            self.engine = create_engine(f'{profile[c.DIALECT]}://{profile[c.USERNAME]}:{profile[c.PASSWORD]}@{profile[c.CONN_URL]}')
+        else:
+            self.engine = None
 
     
     def get_dataframe_from_query(self, query: str):
@@ -26,9 +29,12 @@ class DbConnection:
         Returns:
             A pandas DataFrame containing the results of the query.
         """
-        with self.engine.connect() as conn:
-            result = conn.execute(text(query))
-            df = pd.DataFrame(result.fetchall(), columns=result.keys())
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(text(query))
+                df = pd.DataFrame(result.fetchall(), columns=result.keys())
+        except AttributeError as e:
+            raise ValueError('A profile name must be specified for database views that use sql')
 
         return df
 

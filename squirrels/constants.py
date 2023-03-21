@@ -28,17 +28,22 @@ USERNAME = 'username'
 PASSWORD = 'password'
 
 # Folder/File names
-MANIFEST_FILE = 'manifest.yaml'
+MANIFEST_FILE = 'squirrels.yaml'
 OUTPUTS_FOLDER = 'outputs'
 MODULES_FOLDER = 'modules'
 DATASETS_FOLDER = 'datasets'
 PARAMETERS_MODULE = 'parameters'
+PARAMETERS_FILE = 'parameters.py'
 PARAMETERS_OUTPUT = 'parameters.json'
+DATABASE_VIEW_NAME = 'database_view1'
 FINAL_VIEW_NAME = 'final_view'
+CONTEXT_FILE = 'context.py'
 
 # Dataset setting names
-PARAMETERS_CACHESIZE_SETTING = 'parameters.cachesize'
-RESULTS_CACHESIZE_SETTING = 'results.cachesize'
+PARAMETERS_CACHE_SIZE_SETTING = 'parameters.cache.size'
+PARAMETERS_CACHE_TTL_SETTING = 'parameters.cache.ttl'
+RESULTS_CACHE_SIZE_SETTING = 'results.cache.size'
+RESULTS_CACHE_TTL_SETTING = 'results.cache.ttl'
 
 # Activities to time
 IMPORT_JINJA = 'import jinja'

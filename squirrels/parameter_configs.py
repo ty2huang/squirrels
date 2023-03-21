@@ -195,6 +195,7 @@ class _SelectionParameter(Parameter):
         super().refresh(parameters)
         if self.parent is not None:
             parent_param: _SelectionParameter = parameters[self.parent]
+            parent_param.trigger_refresh = True
             self.selected_parent_ids = set(parent_param.get_selected_ids_as_list())
             self.options = [x for x in self.all_options if x.parent_id in self.selected_parent_ids]
 

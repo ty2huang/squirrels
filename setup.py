@@ -22,10 +22,10 @@ setup(
     author='Tim Huang',
     license='MIT',
     install_requires=[
-        'pwinput', 'cachetools', 'fastapi', 'uvicorn', 'Jinja2', 
+        'inquirer', 'pwinput', 'cachetools', 'fastapi', 'uvicorn', 'Jinja2', 
         'GitPython', 'pandasql', 'pandas', 'sqlalchemy<2', 'pyyaml'
     ],
-    setup_requires=['pytest-runner==6.0.0', 'setuptools_scm'],
+    setup_requires=['pytest-runner==6.0.0'],
     tests_require=['pytest==7.2.0'],
     test_suite='tests',
     entry_points= {

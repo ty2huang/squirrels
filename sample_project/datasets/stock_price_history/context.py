@@ -1,10 +1,10 @@
 from typing import Dict, Any, Callable
-from squirrels import *
-from datasets.stock_price_history.parameters import *
+from datasets.stock_price_history.parameters import NumPeriodsParameter, TimeOfYearParameter, TimeUnitParameterOption
+import squirrels as sq
 
-def main(prms: Callable[[str], Parameter]) -> Dict[str, Any]:
-    time_unit_param: SingleSelectParameter = prms('time_unit')
-    reference_date_param: DateParameter = prms('reference_date')
+def main(prms: Callable[[str], sq.Parameter]) -> Dict[str, Any]:
+    time_unit_param: sq.SingleSelectParameter = prms('time_unit')
+    reference_date_param: sq.DateParameter = prms('reference_date')
     num_periods_param: NumPeriodsParameter = prms('num_periods')
     time_of_year_param: TimeOfYearParameter = prms('time_of_year')
 

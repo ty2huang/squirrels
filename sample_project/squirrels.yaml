@@ -23,5 +23,7 @@ datasets:
     final_view: final_view.sql.j2
 
 settings:
-  parameters.cachesize: 1024
-  results.cachesize: 128
+  parameters.cache.size: 1024
+  parameters.cache.ttl: 86400
+  results.cache.size: 128
+  results.cache.ttl: 86400

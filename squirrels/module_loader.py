@@ -1,5 +1,5 @@
 from typing import List
-from squirrels import context, constants as c
+from squirrels import constants as c, manifest as mf
 import git, shutil, os, stat
 
 
@@ -23,9 +23,9 @@ def parse_module_repo_strings(repo_strings):
 
 
 def load_modules():
-    context.initialize(c.MANIFEST_FILE)
+    mf.initialize(c.MANIFEST_FILE)
     
-    repo_strings: List[str] = context.parms[c.MODULES_KEY]
+    repo_strings: List[str] = mf.parms[c.MODULES_KEY]
 
     # Recreate the modules directory if it exists
     if os.path.exists(c.MODULES_FOLDER):
