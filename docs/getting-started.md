@@ -133,7 +133,7 @@ Classes like `ParameterOption`, `Parameter`, and `SingleSelectParameter` are pro
 
 For more details on the available classes for parameter configurations, see docs for [parameters.py].
 
-## Create the Dynamic SQL Queries
+## Create the Dynamic SQL Query
 
 In the `datasets/weather_by_time/` folder, replace the contents of the `weather_by_time.sql.j2` file with the following.
 

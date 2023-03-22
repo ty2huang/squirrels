@@ -1,12 +1,12 @@
 site_name: Squirrels Documentation
-site_url: https://ty2huang.github.io/squirrels-docs/
+site_url: https://ty2huang.github.io/squirrels/
 
 theme: readthedocs
 
 nav:
 - Home: index.md
 - Getting Started: getting-started.md
-- Core Concepts: core-concepts.md
+- Overview: overview.md
 - CLI Commands:
   - init: cli-guide/init.md
   - set-profile: cli-guide/set-profile.md
