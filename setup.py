@@ -15,11 +15,11 @@ setup(
     name='squirrels',
     version=__version__,
     packages=['squirrels'],
-    include_package_data=True,
     description='Python Package for Configuring SQL Generating APIs',
     long_description=long_description,
     long_description_content_type="text/markdown",
     author='Tim Huang',
+    author_email='tim.yuting@hotmail.com',
     license='MIT',
     install_requires=[
         'inquirer', 'pwinput', 'cachetools', 'fastapi', 'uvicorn', 'Jinja2', 
@@ -28,6 +28,10 @@ setup(
     setup_requires=['pytest-runner==6.0.0'],
     tests_require=['pytest==7.2.0'],
     test_suite='tests',
+    package_data= {
+        'squirrels': ['static/*', 'templates/*', 'base_project/database/*', 'base_project/datasets/sample_dataset/*', 
+                      'base_project/.gitignore', 'base_project/*']
+    },
     entry_points= {
         'console_scripts': ['squirrels=squirrels.command_line:main']
     }
